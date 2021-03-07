@@ -1,5 +1,4 @@
-ARG PHP_VERSION=$PHP_VERSION
-FROM php:${PHP_VERSION}-apache
+FROM php:8.0-apache
 
 # Setup Debian
 RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
@@ -38,6 +37,7 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
 	libc-client-dev \
         pkg-config \ 
         libkrb5-dev \
+        cron \
     && rm -r /var/lib/apt/lists/* \
     && pecl install redis-5.3.2 \
     && pecl install apcu \
@@ -52,16 +52,16 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
     && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # Apache settings
-COPY etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
-COPY etc/apache2/apache2.conf /etc/apache2/apache2.conf
-COPY etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+COPY 8/8.0/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
+COPY 8/8.0/etc/apache2/apache2.conf /etc/apache2/apache2.conf
+COPY 8/8.0/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
 
 # PHP settings
-COPY etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+COPY 8/8.0/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
 
 # Composer
 RUN mkdir -p /usr/local/ssh
-COPY etc/ssh/* /usr/local/ssh/
+COPY 8/8.0/etc/ssh/* /usr/local/ssh/
 RUN sh /usr/local/ssh/install-composer.sh && \
     mv composer.phar /usr/local/bin/composer && \
     a2enmod proxy && \
@@ -82,7 +82,7 @@ RUN sh /usr/local/ssh/install-composer.sh && \
     chmod 777 /var/run/apache2 && \
     echo "<?php echo phpinfo(); ?>" > /var/www/html/phpinfo.php
 
-COPY var/www/html/index.php /var/www/html/index.php
+COPY 8/8.0/var/www/html/index.php /var/www/html/index.php
 
 EXPOSE 8080
 

@@ -34,7 +34,8 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         librdkafka-dev \
         autoconf \
         libc-dev \
-        pkg-config \ 
+        pkg-config \
+        cron \ 
     && pecl install redis \
     && pecl install geoip-1.1.1 \
     && pecl install apcu \
@@ -49,11 +50,11 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
 
 
 # PHP settings
-COPY etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+COPY 7/7.4/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
 
 # Composer
 RUN mkdir -p /usr/local/ssh
-COPY etc/ssh/* /usr/local/ssh/
+COPY 7/7.4/etc/ssh/* /usr/local/ssh/
 RUN sh /usr/local/ssh/install-composer.sh && \
     mv composer.phar /usr/local/bin/composer
 
