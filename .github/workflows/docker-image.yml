@@ -37,6 +37,8 @@ jobs:
       run: docker push ianmgg/php80:latest
     - name: Build the PHP 8.0 dev Docker image
       run: docker build . --file 8/8.0/Dockerfile.apache.dev --tag ianmgg/php80:dev
+    - name: Push PHP 8.0 dev
+      run: docker push ianmgg/php80:dev
     - name: Build the PHP 8.0 cli Docker image
       run: docker build . --file 8/8.0/Dockerfile.cli --tag ianmgg/php80:cli
     - name: Push PHP 8.0 cli
