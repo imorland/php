@@ -39,6 +39,8 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         libkrb5-dev \
         iputils-ping \
         cron \
+        imagemagick \
+        libmagickwand-dev --no-install-recommends \
     && rm -r /var/lib/apt/lists/* \
     && pecl install redis \
     && pecl install apcu \
@@ -46,10 +48,11 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
     && pecl install timezonedb \
     && pecl install grpc \
     && pecl install rdkafka \
+    && pecl install imagick \
     && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl bcmath tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets imap \
-    && docker-php-ext-enable redis apcu memcached timezonedb grpc rdkafka \
+    && docker-php-ext-enable redis apcu memcached timezonedb grpc rdkafka imagick\
     && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # Apache settings
