@@ -19,18 +19,18 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v2
-    # - name: Build the PHP 8.2 Docker image
-    #   run: docker build . --file 8/8.2/Dockerfile.apache --tag ianmgg/php82:latest
-    # - name: Push PHP 8.2 latest
-    #   run: docker push ianmgg/php82:latest
-    # - name: Build the PHP 8.2 dev Docker image
-    #   run: docker build . --file 8/8.2/Dockerfile.apache.dev --tag ianmgg/php82:dev
-    # - name: Push PHP 8.2 dev
-    #   run: docker push ianmgg/php82:dev
-    # - name: Build the PHP 8.2 cli Docker image
-    #   run: docker build . --file 8/8.2/Dockerfile.cli --tag ianmgg/php82:cli
-    # - name: Push PHP 8.2 cli
-    #   run: docker push ianmgg/php82:cli
+    - name: Build the PHP 8.2 Docker image
+      run: docker build . --file 8/8.2/Dockerfile.apache --tag ianmgg/php82:latest
+    - name: Push PHP 8.2 latest
+      run: docker push ianmgg/php82:latest
+    - name: Build the PHP 8.2 dev Docker image
+      run: docker build . --file 8/8.2/Dockerfile.apache.dev --tag ianmgg/php82:dev
+    - name: Push PHP 8.2 dev
+      run: docker push ianmgg/php82:dev
+    - name: Build the PHP 8.2 cli Docker image
+      run: docker build . --file 8/8.2/Dockerfile.cli --tag ianmgg/php82:cli
+    - name: Push PHP 8.2 cli
+      run: docker push ianmgg/php82:cli
     - name: Build the PHP 8.1 Docker image
       run: docker build . --file 8/8.1/Dockerfile.apache --tag ianmgg/php81:latest
     - name: Push PHP 8.1 latest
