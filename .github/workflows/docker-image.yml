@@ -55,15 +55,4 @@ jobs:
       run: docker build . --file 8/8.0/Dockerfile.cli --tag ianmgg/php80:cli
     - name: Push PHP 8.0 cli
       run: docker push ianmgg/php80:cli
-    - name: Build the PHP 7.4 Docker image
-      run: docker build . --file 7/7.4/Dockerfile.apache --tag ianmgg/php74:latest
-    - name: Push PHP 7.4 latest
-      run: docker push ianmgg/php74:latest
-    - name: Build the PHP 7.4 dev Docker image
-      run: docker build . --file 7/7.4/Dockerfile.apache.dev --tag ianmgg/php74:dev
-    - name: Push PHP 7.4 dev
-      run: docker push ianmgg/php74:dev
-    - name: Build the PHP 7.4 cli Docker image
-      run: docker build . --file 7/7.4/Dockerfile.cli --tag ianmgg/php74:cli
-    - name: Push PHP 7.4 cli
-      run: docker push ianmgg/php74:cli
+
