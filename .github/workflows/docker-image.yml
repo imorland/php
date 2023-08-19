@@ -10,11 +10,16 @@ on:
     types: [build-docker]
 
 jobs:
-  build_apache:
+
+  # Build apache and cli images in parallel
+  build_apache_and_cli:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         php_version: ['8.2', '8.1', '8.0']
+        config: 
+          - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
+          - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v1
@@ -22,30 +27,20 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v2
-    - name: Build the Apache Docker image
-      run: docker build . --file 8/${{ matrix.php_version }}/Dockerfile.apache --tag ianmgg/php${{ matrix.php_version }}:latest
-    - name: Push Apache Docker image
-      run: docker push ianmgg/php${{ matrix.php_version }}:latest
+    - name: Build the Docker image
+      run: |
+        TAG_VERSION=${{ matrix.php_version }} # e.g. 8.1
+        TAG_VERSION=${TAG_VERSION//./} # e.g. 81
+        docker build . --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} --tag ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }}
+    - name: Push Docker image
+      run: |
+        TAG_VERSION=${{ matrix.php_version }} # e.g. 8.1
+        TAG_VERSION=${TAG_VERSION//./} # e.g. 81
+        docker push ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }}
 
-  build_cli:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php_version: ['8.2', '8.1', '8.0']
-    steps:
-    - name: Login to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - uses: actions/checkout@v2
-    - name: Build the CLI Docker image
-      run: docker build . --file 8/${{ matrix.php_version }}/Dockerfile.cli --tag ianmgg/php${{ matrix.php_version }}:cli
-    - name: Push CLI Docker image
-      run: docker push ianmgg/php${{ matrix.php_version }}:cli
-
+  # Build dev image which depends on apache image
   build_dev:
-    needs: build_apache
+    needs: build_apache_and_cli
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -57,7 +52,13 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v2
-    - name: Build the Dev Docker image
-      run: docker build . --file 8/${{ matrix.php_version }}/Dockerfile.apache.dev --tag ianmgg/php${{ matrix.php_version }}:dev
-    - name: Push Dev Docker image
-      run: docker push ianmgg/php${{ matrix.php_version }}:dev
+    - name: Build the Docker image
+      run: |
+        TAG_VERSION=${{ matrix.php_version }} # e.g. 8.1
+        TAG_VERSION=${TAG_VERSION//./} # e.g. 81
+        docker build . --file 8/${{ matrix.php_version }}/Dockerfile.apache.dev --tag ianmgg/php$TAG_VERSION:dev
+    - name: Push Docker image
+      run: |
+        TAG_VERSION=${{ matrix.php_version }} # e.g. 8.1
+        TAG_VERSION=${TAG_VERSION//./} # e.g. 81
+        docker push ianmgg/php$TAG_VERSION:dev
