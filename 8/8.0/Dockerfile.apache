@@ -2,67 +2,87 @@ FROM php:8.0-apache
 
 # Setup Debian
 RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
-        apt-file \
-        autoconf \
-        cron \
-        g++ \
-        gcc \
-        git \
-        gnupg \
-        gnupg2 \
-        imagemagick \
-        libaio1 \
+        unzip \
         libfreetype6-dev \
-        libgeoip-dev \
-        libgmp-dev \
-        libjpeg-dev \
         libjpeg62-turbo-dev \
-        libkrb5-dev \
-        libldap2-dev \
-        libmagickwand-dev \
         libmcrypt-dev \
         libmemcached-dev \
-        libonig-dev \
-        libpng-dev \
-        librdkafka-dev \
-        libssl-dev \
-        libtidy-dev \
-        libwebp-dev \
+        libzip-dev \
+        libgeoip-dev \
         libxml2-dev \
         libxslt-dev \
-        libzip-dev \
-        unzip \
-        vim \
+        libtidy-dev \
+        libssl-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libwebp-dev \
+        libgmp-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
+        libaio1 \
+        libldap2-dev \
+        libonig-dev \
+        apt-file \
         wget \
+        vim \
+        gnupg \
+        gnupg2 \
         zip \
+        git \
+        gcc \
+        g++ \
+        librdkafka-dev \
+        autoconf \
+        libc-dev \
+        pkg-config \
+        cron \
+        imagemagick \
+        libmagickwand-dev --no-install-recommends \
     && rm -r /var/lib/apt/lists/* \
     && pecl install redis-5.3.2 apcu memcached timezonedb grpc rdkafka imagick \
     && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
-    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl bcmath tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets imap \
+    && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl bcmath tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets \
     && docker-php-ext-enable redis apcu memcached timezonedb grpc rdkafka imagick \
     && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
-# Apache and PHP settings
-COPY 8/8.0/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/
-COPY 8/8.0/etc/apache2/apache2.conf /etc/apache2/
-COPY 8/8.0/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/
-COPY 8/8.0/etc/php/production.ini /usr/local/etc/php/conf.d/
+# Apache settings
+COPY 8/8.0/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
+COPY 8/8.0/etc/apache2/apache2.conf /etc/apache2/apache2.conf
+COPY 8/8.0/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
 
-# Composer and Apache configurations
+# PHP settings
+COPY 8/8.0/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+
+# Composer
 RUN mkdir -p /usr/local/ssh
 COPY 8/8.0/etc/ssh/* /usr/local/ssh/
 RUN sh /usr/local/ssh/install-composer.sh && \
     mv composer.phar /usr/local/bin/composer && \
-    a2enmod proxy proxy_http proxy_ajp rewrite deflate headers proxy_balancer proxy_connect ssl cache expires \
-    && sed -i 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf \
-    && chmod g+w /var/log/apache2 && chmod 777 /var/lock/apache2 /var/run/apache2 \
-    && echo "<?php echo phpinfo(); ?>" > /var/www/html/phpinfo.php
+    a2enmod proxy && \
+    a2enmod proxy_http && \
+    a2enmod proxy_ajp && \
+    a2enmod rewrite && \
+    a2enmod deflate && \
+    a2enmod headers && \
+    a2enmod proxy_balancer && \
+    a2enmod proxy_connect && \
+    a2enmod ssl && \
+    a2enmod cache && \
+    a2enmod expires && \
+    sed -i 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf && \
+    chmod g+w /var/log/apache2 && \
+    chmod 777 /var/lock/apache2 && \
+    chmod 777 /var/run/apache2 && \
+    echo "<?php echo phpinfo(); ?>" > /var/www/html/phpinfo.php
 
-COPY 8/8.0/var/www/html/index.php /var/www/html/
+COPY 8/8.0/var/www/html/index.php /var/www/html/index.php
 
 EXPOSE 8080
 
+### PROD ENVIRONMENT SPECIFIC ###
+################################
+
 ENV PROVISION_CONTEXT "production"
 
+################################
 CMD ["startup"]
