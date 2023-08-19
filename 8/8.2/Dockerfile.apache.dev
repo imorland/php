@@ -1,14 +1,17 @@
+# Use the custom PHP 8.2 image as the base image
 FROM ianmgg/php82:latest
 
 ### DEV ENVIRONMENT SPECIFIC ###
 ################################
 ENV PROVISION_CONTEXT "development"
-RUN pecl install xdebug && docker-php-ext-enable xdebug && touch /var/log/xdebug.log && chmod 777 /var/log/xdebug.log
+ENV DEBIAN_FRONTEND noninteractive
 
-# Add Development PHP.ini
-COPY 8/8.2/etc/php/development.ini /usr/local/etc/php/conf.d/development.ini
+# Install xdebug, enable it, and configure the log
+RUN pecl install xdebug && \
+    docker-php-ext-enable xdebug && \
+    touch /var/log/xdebug.log && \
+    chmod 777 /var/log/xdebug.log
 
-# Remove Production PHP.ini
+# Configure PHP
+COPY 8/8.2/etc/php/development.ini /usr/local/etc/php/conf.d/
 RUN rm -rf /usr/local/etc/php/conf.d/production.ini
-
-################################

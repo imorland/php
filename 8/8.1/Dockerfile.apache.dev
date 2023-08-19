@@ -1,14 +1,17 @@
+# Use the latest PHP 8.1 Apache image as the base image
 FROM ianmgg/php81:latest
 
-### DEV ENVIRONMENT SPECIFIC ###
-################################
+# Set the context to development
 ENV PROVISION_CONTEXT "development"
-RUN pecl install xdebug && docker-php-ext-enable xdebug && touch /var/log/xdebug.log && chmod 777 /var/log/xdebug.log
 
-# Add Development PHP.ini
+# Install and enable xdebug, configure log file
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && touch /var/log/xdebug.log \
+    && chmod 777 /var/log/xdebug.log
+
+# Add development-specific PHP configuration
 COPY 8/8.1/etc/php/development.ini /usr/local/etc/php/conf.d/development.ini
 
-# Remove Production PHP.ini
-RUN rm -rf /usr/local/etc/php/conf.d/production.ini
-
-################################
+# Remove the production-specific PHP configuration
+RUN rm /usr/local/etc/php/conf.d/production.ini

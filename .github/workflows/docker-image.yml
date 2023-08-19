@@ -5,13 +5,20 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [build-docker]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        php_version: ['8.2', '8.1', '8.0']
+        config: 
+          - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
+          - {dockerfile_suffix: 'apache.dev', tag_suffix: 'dev'}
+          - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v1
@@ -19,40 +26,7 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v2
-    - name: Build the PHP 8.2 Docker image
-      run: docker build . --file 8/8.2/Dockerfile.apache --tag ianmgg/php82:latest
-    - name: Push PHP 8.2 latest
-      run: docker push ianmgg/php82:latest
-    - name: Build the PHP 8.2 dev Docker image
-      run: docker build . --file 8/8.2/Dockerfile.apache.dev --tag ianmgg/php82:dev
-    - name: Push PHP 8.2 dev
-      run: docker push ianmgg/php82:dev
-    - name: Build the PHP 8.2 cli Docker image
-      run: docker build . --file 8/8.2/Dockerfile.cli --tag ianmgg/php82:cli
-    - name: Push PHP 8.2 cli
-      run: docker push ianmgg/php82:cli
-    - name: Build the PHP 8.1 Docker image
-      run: docker build . --file 8/8.1/Dockerfile.apache --tag ianmgg/php81:latest
-    - name: Push PHP 8.1 latest
-      run: docker push ianmgg/php81:latest
-    - name: Build the PHP 8.1 dev Docker image
-      run: docker build . --file 8/8.1/Dockerfile.apache.dev --tag ianmgg/php81:dev
-    - name: Push PHP 8.1 dev
-      run: docker push ianmgg/php81:dev
-    - name: Build the PHP 8.1 cli Docker image
-      run: docker build . --file 8/8.1/Dockerfile.cli --tag ianmgg/php81:cli
-    - name: Push PHP 8.1 cli
-      run: docker push ianmgg/php81:cli
-    - name: Build the PHP 8.0 Docker image
-      run: docker build . --file 8/8.0/Dockerfile.apache --tag ianmgg/php80:latest
-    - name: Push PHP 8.0 latest
-      run: docker push ianmgg/php80:latest
-    - name: Build the PHP 8.0 dev Docker image
-      run: docker build . --file 8/8.0/Dockerfile.apache.dev --tag ianmgg/php80:dev
-    - name: Push PHP 8.0 dev
-      run: docker push ianmgg/php80:dev
-    - name: Build the PHP 8.0 cli Docker image
-      run: docker build . --file 8/8.0/Dockerfile.cli --tag ianmgg/php80:cli
-    - name: Push PHP 8.0 cli
-      run: docker push ianmgg/php80:cli
-
+    - name: Build the Docker image
+      run: docker build . --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} --tag ianmgg/php${{ matrix.php_version }}:${{ matrix.config.tag_suffix }}
+    - name: Push Docker image
+      run: docker push ianmgg/php${{ matrix.php_version }}:${{ matrix.config.tag_suffix }}
