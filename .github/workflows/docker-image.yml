@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1', '8.0']
+        php_version: ['8.2', '8.1', '8.0']
         config: 
           - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
           - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1', '8.0']
+        php_version: ['8.2', '8.1', '8.0']
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v1
