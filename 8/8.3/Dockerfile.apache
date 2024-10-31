@@ -39,7 +39,7 @@ RUN apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         cron \
         imagemagick \
         libmagickwand-dev \
-    && apt-get clean
+    && apt-get clean \
     && rm -r /var/lib/apt/lists/* \
     && pecl install redis apcu memcached timezonedb grpc rdkafka imagick \
     && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
