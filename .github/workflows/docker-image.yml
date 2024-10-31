@@ -10,7 +10,6 @@ on:
     types: [build-docker]
 
 jobs:
-
   # Build apache and cli images in parallel
   build_apache_and_cli:
     runs-on: ubuntu-latest
@@ -34,7 +33,9 @@ jobs:
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v4
     - name: Set TAG_VERSION
-      run: echo "TAG_VERSION=${{ matrix.php_version//./ }}" >> $GITHUB_ENV
+      run: |
+        TAG_VERSION=${{ matrix.php_version }} 
+        echo "TAG_VERSION=${TAG_VERSION//./}" >> $GITHUB_ENV
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
@@ -42,7 +43,7 @@ jobs:
           --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
           --tag ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }} \
           --push
-
+ 
   # Build dev image which depends on apache image
   build_dev:
     needs: build_apache_and_cli
@@ -64,7 +65,9 @@ jobs:
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - uses: actions/checkout@v4
     - name: Set TAG_VERSION
-      run: echo "TAG_VERSION=${{ matrix.php_version//./ }}" >> $GITHUB_ENV
+      run: |
+        TAG_VERSION=${{ matrix.php_version }}
+        echo "TAG_VERSION=${TAG_VERSION//./}" >> $GITHUB_ENV
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
