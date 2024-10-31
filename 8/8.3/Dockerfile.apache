@@ -1,7 +1,7 @@
 FROM php:8.3-apache
 
 # Setup Debian
-RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
+RUN apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         unzip \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
@@ -38,7 +38,8 @@ RUN apt-get upgrade && apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         iputils-ping \
         cron \
         imagemagick \
-        libmagickwand-dev --no-install-recommends \
+        libmagickwand-dev \
+    && apt-get clean
     && rm -r /var/lib/apt/lists/* \
     && pecl install redis apcu memcached timezonedb grpc rdkafka imagick \
     && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
