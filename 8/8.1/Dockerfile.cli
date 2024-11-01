@@ -25,4 +25,4 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
 #     mv composer.phar /usr/local/bin/composer
 
 # Set the environment to CLI
-ENV PROVISION_CONTEXT "cli"
+ENV PROVISION_CONTEXT="cli"
