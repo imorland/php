@@ -53,7 +53,7 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl iconv bcmath xml mbstring pdo tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets \
     && docker-php-ext-enable redis apcu memcached timezonedb rdkafka yaml \
     && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini \
-    && apt-get clean && \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # PHP settings
