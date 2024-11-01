@@ -1,7 +1,7 @@
 FROM php:8.3-apache
 
 # Setup Debian
-RUN apt-get update && ACCEPT_EULA=Y && apt-get install -y \
+RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
         unzip \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
@@ -17,6 +17,7 @@ RUN apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         libpng-dev \
         libwebp-dev \
         libgmp-dev \
+        libyaml-dev \
         libjpeg-dev \
         libfreetype6-dev \
         libaio1 \
@@ -34,18 +35,26 @@ RUN apt-get update && ACCEPT_EULA=Y && apt-get install -y \
         librdkafka-dev \
         autoconf \
         libc-dev \
+	    libc-client-dev \
         pkg-config \ 
+        libkrb5-dev \
         iputils-ping \
         cron \
-        imagemagick \
-        libmagickwand-dev \
-    && apt-get clean \
     && rm -r /var/lib/apt/lists/* \
-    && pecl install redis apcu memcached timezonedb grpc rdkafka imagick \
+    && pecl install redis \
+    && pecl install apcu \
+    && pecl install memcached \
+    && pecl install timezonedb \
+    && pecl install yaml \
+    && pecl install rdkafka \
+    && pecl install apfd \
     && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
-    && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl bcmath tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets \
-    && docker-php-ext-enable redis apcu memcached timezonedb grpc rdkafka imagick\
-    && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl bcmath tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets imap \
+    && docker-php-ext-enable redis yaml apcu memcached timezonedb rdkafka apfd \
+    && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini \
+    && apt-get clean && \
+    && rm -rf /var/lib/apt/lists/*
 
 # Apache settings
 COPY 8/8.3/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
@@ -54,6 +63,8 @@ COPY 8/8.3/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled
 
 # PHP settings
 COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+
+COPY 8/8.3/var/www/html/index.php /var/www/html/index.php
 
 # Composer
 RUN mkdir -p /usr/local/ssh
@@ -77,10 +88,8 @@ RUN sh /usr/local/ssh/install-composer.sh && \
     chmod 777 /var/run/apache2 && \
     echo "<?php echo phpinfo(); ?>" > /var/www/html/phpinfo.php
 
-COPY 8/8.3/var/www/html/index.php /var/www/html/index.php
-
 EXPOSE 8080
 
-ENV PROVISION_CONTEXT "production"
+ENV PROVISION_CONTEXT="production"
 
 CMD ["startup"]
