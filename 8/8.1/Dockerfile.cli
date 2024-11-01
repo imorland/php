@@ -2,8 +2,10 @@
 FROM islamicnetwork/php:8.1-cli
 
 # Update and install required Debian packages
-RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
-        cron \
+RUN apt-get -y update && \
+    apt-get -y upgrade && \
+    ACCEPT_EULA=Y apt-get install -y \
+        cron && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
