@@ -39,7 +39,7 @@ RUN apt-get -y update && \
         pkg-config \
         libkrb5-dev \
         iputils-ping && \
-        make \
+        make && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     pecl install redis apcu timezonedb yaml rdkafka apfd && \
