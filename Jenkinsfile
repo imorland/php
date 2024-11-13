@@ -40,8 +40,7 @@ pipeline {
                     stage('Set TAG_VERSION') {
                         steps {
                             script {
-                                TAG_VERSION = PHP_VERSION.replace('.', '')
-                                env.TAG_VERSION = TAG_VERSION
+                                env.TAG_VERSION = PHP_VERSION.replace('.', '')
                             }
                         }
                     }
@@ -50,7 +49,7 @@ pipeline {
                             script {
                                 def dockerfileSuffix = CONFIG
                                 def tagSuffix = dockerfileSuffix == 'apache' ? 'latest' : 'cli'
-                                def dockerImage = "ianmgg/php${TAG_VERSION}:${tagSuffix}"
+                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:${tagSuffix}"
 
                                 sh """
                                 docker buildx build . \
@@ -88,40 +87,4 @@ pipeline {
                         steps {
                             checkout scm
                         }
-                    }
-                    stage('Set TAG_VERSION') {
-                        steps {
-                            script {
-                                TAG_VERSION = PHP_VERSION.replace('.', '')
-                                env.TAG_VERSION = TAG_VERSION
-                            }
-                        }
-                    }
-                    stage('Build and Push Dev Image') {
-                        steps {
-                            script {
-                                def dockerImage = "ianmgg/php${TAG_VERSION}:dev"
-
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
-                                  --tag ${dockerImage} \
-                                  --push
-                                """
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    post {
-        success {
-            echo 'All Docker images successfully built and pushed to Docker Hub!'
-        }
-        failure {
-            echo 'Build or push failed.'
-        }
-    }
-}
+                  
