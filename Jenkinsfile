@@ -20,7 +20,7 @@ pipeline {
         stage('Build Apache, CLI and Dev Images') {
             steps {
                 script {
-                    def phpVersions = ['8.3']
+                    def phpVersions = ['8.2']
 
                     for (phpVersion in phpVersions) {
                         def tagVersion = phpVersion.replace('.', '')
