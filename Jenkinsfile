@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    environment {
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+    }
     stages {
         stage('Test Docker') {
             steps {
@@ -7,14 +10,6 @@ pipeline {
                 sh 'docker ps'
             }
         }
-    }
-}
-pipeline {
-    agent any
-    environment {
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-    }
-    stages {
         stage('Set up QEMU and Docker Buildx') {
             steps {
                 script {
