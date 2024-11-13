@@ -68,7 +68,7 @@ RUN apt-get -y update && \
         exif \
         sockets \
         imap && \
-    docker-php-ext-enable redis yaml apcu timezonedb rdkafka apfd && \
+    docker-php-ext-enable redis yaml apcu timezonedb apfd && \
     printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # Apache settings
