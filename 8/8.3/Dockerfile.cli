@@ -32,6 +32,9 @@ RUN apt-get -y update && \
         git \
         gcc \
         g++ \
+        cpp \   
+        libc6-dev \ 
+        dpkg-dev \ 
         librdkafka-dev \
         autoconf \
         libc-dev \
