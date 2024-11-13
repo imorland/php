@@ -17,7 +17,7 @@ pipeline {
                 }
             }
         }
-        stage('Build Apache and CLI Images') {
+        stage('Build Apache, CLI and Dev Images') {
             steps {
                 script {
                     def phpVersions = ['8.3', '8.2', '8.1']
