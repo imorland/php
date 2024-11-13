@@ -2,13 +2,11 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        PHP_VERSIONS = ['8.3', '8.2', '8.1']
     }
     stages {
         stage('Test Docker') {
             steps {
                 sh 'docker --version'
-                sh 'docker ps'
             }
         }
         stage('Set up QEMU and Docker Buildx') {
@@ -22,7 +20,9 @@ pipeline {
         stage('Build Apache and CLI Images') {
             steps {
                 script {
-                    for (phpVersion in PHP_VERSIONS) {
+                    def phpVersions = ['8.3', '8.2', '8.1']
+
+                    for (phpVersion in phpVersions) {
                         def tagVersion = phpVersion.replace('.', '')
                         
                         // Login to Docker Hub
@@ -47,22 +47,7 @@ pipeline {
                           --tag ${cliImage} \
                           --push
                         """
-                    }
-                }
-            }
-        }
-        stage('Build Dev Images') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
-            steps {
-                script {
-                    for (phpVersion in PHP_VERSIONS) {
-                        def tagVersion = phpVersion.replace('.', '')
 
-                        // Login to Docker Hub (if required again)
-                        sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                        
                         // Build Dev image
                         def devImage = "ianmgg/php${tagVersion}:dev"
                         sh """
