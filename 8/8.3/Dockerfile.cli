@@ -38,7 +38,7 @@ RUN apt-get -y update && \
         libc-client-dev \
         pkg-config \
         libkrb5-dev \
-        iputils-ping && \
+        iputils-ping \
         make && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
