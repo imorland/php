@@ -13,7 +13,7 @@ pipeline {
             steps {
                 script {
                     sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
-                    sh 'docker buildx create --use || echo "Builder already exists"'
+                    sh 'docker buildx create --name mybuilder --use || docker buildx use mybuilder
                 }
             }
         }
