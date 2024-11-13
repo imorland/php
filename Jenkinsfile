@@ -2,6 +2,8 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        DOCKER_BUILDKIT = "1"
+        DOCKER_CLI_EXPERIMENTAL = "enabled"
     }
     stages {
         stage('Test Docker') {
@@ -13,7 +15,11 @@ pipeline {
             steps {
                 script {
                     sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
-                    sh 'docker buildx create --use || echo "Builder already exists"'
+                    // Set up Docker Buildx if not already available
+                    sh '''
+                    docker buildx create --name phpbuilder --use || true
+                    docker buildx inspect phpbuilder --bootstrap
+                    '''
                 }
             }
         }
@@ -63,6 +69,12 @@ pipeline {
         }
     }
     post {
+        always {
+            script {
+                // Clean up builder
+                sh 'docker buildx rm phpbuilder || true'
+            }
+        }
         success {
             echo 'All Docker images successfully built and pushed to Docker Hub!'
         }
