@@ -34,7 +34,6 @@ RUN apt-get -y update && \
         cpp \   
         libc6-dev \ 
         dpkg-dev \ 
-        librdkafka-dev \
         autoconf \
         libc-dev \
         libc-client-dev \
@@ -44,7 +43,7 @@ RUN apt-get -y update && \
         make && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    pecl install redis apcu timezonedb yaml rdkafka apfd && \
+    pecl install redis apcu timezonedb yaml apfd && \
     docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg && \
     docker-php-ext-configure imap --with-kerberos --with-imap-ssl && \
     docker-php-ext-install \
