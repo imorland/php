@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        PHP_VERSIONS = ['8.3', '8.2', '8.1']
+        PHP_VERSIONS = "['8.3', '8.2', '8.1']"
     }
     stages {
         stage('Test Docker') {
