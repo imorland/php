@@ -3,6 +3,7 @@ FROM ianmgg/php81:latest
 
 # Set the context to development
 ENV PROVISION_CONTEXT="development"
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install and enable xdebug, configure log file
 RUN pecl install xdebug \
