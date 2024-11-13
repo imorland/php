@@ -6,16 +6,63 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Setup Debian
 RUN apt-get -y update && apt-get install -y \
         cron \
+        unzip \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libmcrypt-dev \
+        libmemcached-dev \
+        libzip-dev \
+        libgeoip-dev \
+        libxml2-dev \
+        libxslt-dev \
+        libtidy-dev \
+        libssl-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libwebp-dev \
+        libgmp-dev \
+        libjpeg-dev \
+        libyaml-dev \
+        libfreetype6-dev \
+        libaio1 \
+        libldap2-dev \
+        libonig-dev \
+        apt-file \
+        wget \
+        vim \
+        gnupg \
+        gnupg2 \
+        zip \
+        git \
+        curl \
+        jq \
+        gcc \
+        g++ \
+        librdkafka-dev \
+        autoconf \
+        libc-dev \
+        pkg-config \ 
+        iputils-ping \
+    && pecl install redis \
+    && pecl install apcu \
+    && pecl install memcached \
+    && pecl install timezonedb \
+    && pecl install rdkafka \
+    && pecl install yaml \
+    && docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg \
+    && docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl iconv bcmath xml mbstring pdo tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets \
+    && docker-php-ext-enable redis apcu memcached timezonedb rdkafka yaml \
+    && printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# # PHP settings
-# COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/
+# PHP settings
+COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/
 
-# # Composer
-# COPY 8/8.3/etc/ssh/* /usr/local/ssh/
-# RUN sh /usr/local/ssh/install-composer.sh && \
-#     mv composer.phar /usr/local/bin/composer
+# Composer
+COPY 8/8.3/etc/ssh/* /usr/local/ssh/
+RUN sh /usr/local/ssh/install-composer.sh && \
+    mv composer.phar /usr/local/bin/composer
 
 ### PROD ENVIRONMENT SPECIFIC ###
 ################################
