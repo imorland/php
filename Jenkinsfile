@@ -87,4 +87,39 @@ pipeline {
                         steps {
                             checkout scm
                         }
-                  
+                    }
+                    stage('Set TAG_VERSION') {
+                        steps {
+                            script {
+                                env.TAG_VERSION = PHP_VERSION.replace('.', '')
+                            }
+                        }
+                    }
+                    stage('Build and Push Dev Image') {
+                        steps {
+                            script {
+                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:dev"
+
+                                sh """
+                                docker buildx build . \
+                                  --platform linux/amd64,linux/arm64 \
+                                  --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
+                                  --tag ${dockerImage} \
+                                  --push
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            echo 'All Docker images successfully built and pushed to Docker Hub!'
+        }
+        failure {
+            echo 'Build or push failed.'
+        }
+    }
+}
