@@ -39,7 +39,7 @@ RUN apt-get -y update && \
         pkg-config \
         libkrb5-dev \
         iputils-ping && \
-        build-essential \
+        make \
         liblz4-dev \
         libzstd-dev && \
     apt-get clean && \
