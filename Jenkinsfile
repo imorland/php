@@ -3,9 +3,6 @@ pipeline {
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
     }
-    // Define PHP versions as a list at the top level, not within environment
-    def PHP_VERSIONS = ['8.3', '8.2', '8.1']
-    
     stages {
         stage('Test Docker') {
             steps {
@@ -27,7 +24,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PHP_VERSION'
-                        values PHP_VERSIONS // Use PHP_VERSIONS list directly
+                        values evaluate(['8.3', '8.2', '8.1']) // Define list here and evaluate it directly
                     }
                     axis {
                         name 'CONFIG'
@@ -83,7 +80,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PHP_VERSION'
-                        values PHP_VERSIONS // Use PHP_VERSIONS list directly
+                        values evaluate(['8.3', '8.2', '8.1']) // Define list here and evaluate it directly
                     }
                 }
                 stages {
