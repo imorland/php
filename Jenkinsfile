@@ -2,6 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        PHP_VERSIONS = ['8.3', '8.2', '8.1']
     }
     stages {
         stage('Test Docker') {
@@ -14,7 +15,8 @@ pipeline {
             steps {
                 script {
                     sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
-                    sh 'docker buildx create --use || echo "Builder already exists"'
+                    // Create and use a named builder instance to ensure uniqueness
+                    sh 'docker buildx create --name mybuilder --use || docker buildx use mybuilder'
                 }
             }
         }
@@ -23,7 +25,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PHP_VERSION'
-                        values '8.3', '8.2', '8.1'
+                        values PHP_VERSIONS // Use PHP_VERSIONS array from environment
                     }
                     axis {
                         name 'CONFIG'
@@ -55,7 +57,8 @@ pipeline {
                             script {
                                 def dockerfileSuffix = CONFIG
                                 def tagSuffix = dockerfileSuffix == 'apache' ? 'latest' : 'cli'
-                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:${tagSuffix}"
+                                def uniqueTag = "${env.BUILD_NUMBER}-${env.BUILD_ID}" // Unique tag based on Jenkins build details
+                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:${tagSuffix}-${uniqueTag}"
 
                                 sh """
                                 docker buildx build . \
@@ -78,7 +81,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PHP_VERSION'
-                        values '8.3', '8.2', '8.1'
+                        values PHP_VERSIONS // Use PHP_VERSIONS array from environment
                     }
                 }
                 stages {
@@ -104,7 +107,8 @@ pipeline {
                     stage('Build and Push Dev Image') {
                         steps {
                             script {
-                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:dev"
+                                def uniqueTag = "${env.BUILD_NUMBER}-${env.BUILD_ID}" // Unique tag based on Jenkins build details
+                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:dev-${uniqueTag}"
 
                                 sh """
                                 docker buildx build . \
@@ -112,6 +116,18 @@ pipeline {
                                   --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                                   --tag ${dockerImage} \
                                   --push
+                                """
+                            }
+                        }
+                    }
+                    stage('Tag Latest Build') {
+                        steps {
+                            script {
+                                def baseImage = "ianmgg/php${env.TAG_VERSION}"
+                                def dockerImage = "${baseImage}:${tagSuffix}-${uniqueTag}"
+                                sh """
+                                docker tag ${dockerImage} ${baseImage}:${tagSuffix}
+                                docker push ${baseImage}:${tagSuffix}
                                 """
                             }
                         }
