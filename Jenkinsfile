@@ -2,6 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        PHP_VERSIONS = ['8.3', '8.2', '8.1']
     }
     stages {
         stage('Test Docker') {
@@ -19,53 +20,33 @@ pipeline {
             }
         }
         stage('Build Apache and CLI Images') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PHP_VERSION'
-                        values '8.3', '8.2', '8.1'
-                    }
-                    axis {
-                        name 'CONFIG'
-                        values 'apache', 'cli'
-                    }
-                }
-                stages {
-                    stage('Login to Docker Hub') {
-                        steps {
-                            script {
-                                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                            }
-                        }
-                    }
-                    stage('Checkout Code') {
-                        steps {
-                            checkout scm
-                        }
-                    }
-                    stage('Set TAG_VERSION') {
-                        steps {
-                            script {
-                                env.TAG_VERSION = PHP_VERSION.replace('.', '')
-                            }
-                        }
-                    }
-                    stage('Build and Push Image') {
-                        steps {
-                            script {
-                                def dockerfileSuffix = CONFIG
-                                def tagSuffix = dockerfileSuffix == 'apache' ? 'latest' : 'cli'
-                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:${tagSuffix}"
+            steps {
+                script {
+                    for (phpVersion in PHP_VERSIONS) {
+                        def tagVersion = phpVersion.replace('.', '')
+                        
+                        // Login to Docker Hub
+                        sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                        
+                        // Build Apache image
+                        def apacheImage = "ianmgg/php${tagVersion}:latest"
+                        sh """
+                        docker buildx build . \
+                          --platform linux/amd64,linux/arm64 \
+                          --file 8/${phpVersion}/Dockerfile.apache \
+                          --tag ${apacheImage} \
+                          --push
+                        """
 
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.${dockerfileSuffix} \
-                                  --tag ${dockerImage} \
-                                  --push
-                                """
-                            }
-                        }
+                        // Build CLI image
+                        def cliImage = "ianmgg/php${tagVersion}:cli"
+                        sh """
+                        docker buildx build . \
+                          --platform linux/amd64,linux/arm64 \
+                          --file 8/${phpVersion}/Dockerfile.cli \
+                          --tag ${cliImage} \
+                          --push
+                        """
                     }
                 }
             }
@@ -74,47 +55,23 @@ pipeline {
             when {
                 expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
             }
-            matrix {
-                axes {
-                    axis {
-                        name 'PHP_VERSION'
-                        values '8.3', '8.2', '8.1'
-                    }
-                }
-                stages {
-                    stage('Login to Docker Hub') {
-                        steps {
-                            script {
-                                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                            }
-                        }
-                    }
-                    stage('Checkout Code') {
-                        steps {
-                            checkout scm
-                        }
-                    }
-                    stage('Set TAG_VERSION') {
-                        steps {
-                            script {
-                                env.TAG_VERSION = PHP_VERSION.replace('.', '')
-                            }
-                        }
-                    }
-                    stage('Build and Push Dev Image') {
-                        steps {
-                            script {
-                                def dockerImage = "ianmgg/php${env.TAG_VERSION}:dev"
+            steps {
+                script {
+                    for (phpVersion in PHP_VERSIONS) {
+                        def tagVersion = phpVersion.replace('.', '')
 
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
-                                  --tag ${dockerImage} \
-                                  --push
-                                """
-                            }
-                        }
+                        // Login to Docker Hub (if required again)
+                        sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                        
+                        // Build Dev image
+                        def devImage = "ianmgg/php${tagVersion}:dev"
+                        sh """
+                        docker buildx build . \
+                          --platform linux/amd64,linux/arm64 \
+                          --file 8/${phpVersion}/Dockerfile.apache.dev \
+                          --tag ${devImage} \
+                          --push
+                        """
                     }
                 }
             }
