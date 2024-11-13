@@ -4,6 +4,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_BUILDKIT = "1"
         DOCKER_CLI_EXPERIMENTAL = "enabled"
+        DOCKER_NAMESPACE = "ianmgg"
     }
     stages {
         stage('Test Docker') {
@@ -35,7 +36,7 @@ pipeline {
                         sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                         
                         // Build Apache image
-                        def apacheImage = "ianmgg/php${tagVersion}:latest"
+                        def apacheImage = "${DOCKER_NAMESPACE}/php${tagVersion}:latest"
                         sh """
                         docker buildx build . \
                           --platform linux/amd64,linux/arm64 \
@@ -45,7 +46,7 @@ pipeline {
                         """
 
                         // Build CLI image
-                        def cliImage = "ianmgg/php${tagVersion}:cli"
+                        def cliImage = "${DOCKER_NAMESPACE}/php${tagVersion}:cli"
                         sh """
                         docker buildx build . \
                           --platform linux/amd64,linux/arm64 \
@@ -55,7 +56,7 @@ pipeline {
                         """
 
                         // Build Dev image
-                        def devImage = "ianmgg/php${tagVersion}:dev"
+                        def devImage = "${DOCKER_NAMESPACE}/php${tagVersion}:dev"
                         sh """
                         docker buildx build . \
                           --platform linux/amd64,linux/arm64 \
