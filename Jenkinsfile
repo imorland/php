@@ -1,5 +1,16 @@
 pipeline {
     agent any
+    stages {
+        stage('Test Docker') {
+            steps {
+                sh 'docker --version'
+                sh 'docker ps'
+            }
+        }
+    }
+}
+pipeline {
+    agent any
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
     }
