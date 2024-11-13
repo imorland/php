@@ -1,8 +1,9 @@
-FROM php:8.3-apache
+FROM php:8.4.0RC4-cli
 
+# Ensure interactive shells don't get presented during any apt-get operations
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Setup Debian packages and PHP extensions
+# Setup Debian
 RUN apt-get -y update && \
     apt-get install -y \
         cron \
@@ -43,8 +44,9 @@ RUN apt-get -y update && \
         make && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    pecl install yaml && \
+    pecl install redis apcu timezonedb yaml apfd && \
     docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg && \
+    docker-php-ext-configure imap --with-kerberos --with-imap-ssl && \
     docker-php-ext-install \
         gd \
         calendar \
@@ -65,32 +67,19 @@ RUN apt-get -y update && \
         zip \
         opcache \
         exif \
-        sockets && \
-    docker-php-ext-enable yaml && \
+        sockets \
+        imap && \
+    docker-php-ext-enable redis yaml apcu timezonedb apfd && \
     printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
-# Apache settings
-COPY 8/8.3/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
-COPY 8/8.3/etc/apache2/apache2.conf /etc/apache2/apache2.conf
-COPY 8/8.3/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
-COPY 8/8.3/etc/ssh/* /usr/local/ssh/
-
 # PHP settings
-COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/
 
 # Composer
-RUN mkdir -p /usr/local/ssh && \
-    sh /usr/local/ssh/install-composer.sh && \
-    mv composer.phar /usr/local/bin/composer && \
-    a2enmod proxy proxy_http proxy_ajp rewrite deflate headers proxy_balancer proxy_connect ssl cache expires && \
-    sed -i 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf && \
-    chmod g+w /var/log/apache2 && \
-    chmod 777 /var/lock/apache2 && \
-    chmod 777 /var/run/apache2 && \
-    echo "<?php echo phpinfo(); ?>" > /var/www/html/index.php
+COPY 8/8.3/etc/ssh/* /usr/local/ssh/
+RUN sh /usr/local/ssh/install-composer.sh && \
+    mv composer.phar /usr/local/bin/composer
 
-EXPOSE 8080
-
-ENV PROVISION_CONTEXT="production"
-
-CMD ["startup"]
+### PROD ENVIRONMENT SPECIFIC ###
+################################
+ENV PROVISION_CONTEXT="cli"
