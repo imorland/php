@@ -40,7 +40,8 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
 
 RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
 RUN docker-php-ext-install gd bcmath tidy gettext
-RUN docker-php-ext-install intl pdo_mysql mysqli 
+RUN docker-php-ext-install intl 
+RUN docker-php-ext-install pdo_mysql mysqli 
 RUN docker-php-ext-install simplexml xml xsl 
 RUN docker-php-ext-install xmlwriter zip opcache exif 
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
