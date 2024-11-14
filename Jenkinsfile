@@ -39,7 +39,7 @@ pipeline {
                         def apacheImage = "${DOCKER_NAMESPACE}/php${tagVersion}:latest"
                         sh """
                         docker buildx build . \
-                          --platform linux/amd64,linux/arm64 \
+                          --platform linux/amd64 \
                           --file 8/${phpVersion}/Dockerfile.apache \
                           --tag ${apacheImage} \
                           --push
@@ -49,7 +49,7 @@ pipeline {
                         def cliImage = "${DOCKER_NAMESPACE}/php${tagVersion}:cli"
                         sh """
                         docker buildx build . \
-                          --platform linux/amd64,linux/arm64 \
+                          --platform linux/amd64 \
                           --file 8/${phpVersion}/Dockerfile.cli \
                           --tag ${cliImage} \
                           --push
@@ -59,7 +59,7 @@ pipeline {
                         def devImage = "${DOCKER_NAMESPACE}/php${tagVersion}:dev"
                         sh """
                         docker buildx build . \
-                          --platform linux/amd64,linux/arm64 \
+                          --platform linux/amd64 \
                           --file 8/${phpVersion}/Dockerfile.apache.dev \
                           --tag ${devImage} \
                           --push
