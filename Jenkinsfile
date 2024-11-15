@@ -47,7 +47,7 @@ pipeline {
                                     sh """
                                     docker buildx build . \
                                       --progress=plain \
-                                      --platform linux/amd64,linux/arm64 \
+                                      --platform linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
                                       --push
@@ -57,7 +57,7 @@ pipeline {
                                     sh """
                                     docker buildx build . \
                                       --progress=plain \
-                                      --platform linux/amd64,linux/arm64 \
+                                      --platform linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.cli \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
                                       --push
@@ -67,7 +67,7 @@ pipeline {
                                     sh """
                                     docker buildx build . \
                                       --progress=plain \
-                                      --platform linux/amd64,linux/arm64 \
+                                      --platform linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \
                                       --push
