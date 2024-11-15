@@ -33,9 +33,10 @@ pipeline {
                     }
                 }
                 stages {
-                    stage("Build Images for PHP ${PHP_VERSION}") { // Parent stage
+                    stage('Build Images') { // Static stage name
                         steps {
                             script {
+                                echo "Building images for PHP ${PHP_VERSION}" // Log PHP version
                                 def tagVersion = PHP_VERSION.replace('.', '')
 
                                 // Login to Docker Hub
