@@ -88,7 +88,20 @@ pipeline {
             echo 'All Docker images successfully built and pushed to Docker Hub!'
         }
         failure {
-            echo 'Build or push failed.'
+            script {
+                echo 'Build or push failed.'
+                // Capture details about the failed build
+                echo "Failed during PHP version: ${env.PHP_VERSION}"
+                echo "Check the logs for detailed information."
+
+                // Save the logs to an artifact (optional)
+                archiveArtifacts artifacts: '**/logs/**', allowEmptyArchive: true
+
+                // Notify team (example: Slack or email)
+                // Uncomment if integration is configured
+                // slackSend channel: '#build-failures', message: "Build failed for PHP version: ${env.PHP_VERSION}. Check Jenkins for details."
+                // mail to: 'team@example.com', subject: 'Build Failed', body: "Build failed for PHP version: ${env.PHP_VERSION}. Check Jenkins for details."
+            }
         }
     }
 }
