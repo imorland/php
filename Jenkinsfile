@@ -33,64 +33,45 @@ pipeline {
                     }
                 }
                 stages {
-                    stage("Build Latest Image for PHP ${PHP_VERSION}") {
+                    stage("Build Images for PHP ${PHP_VERSION}") { // Parent stage
                         steps {
                             script {
                                 def tagVersion = PHP_VERSION.replace('.', '')
 
                                 // Login to Docker Hub
                                 sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                                
-                                // Build Apache image (latest tag)
-                                def apacheImage = "${DOCKER_NAMESPACE}/php${tagVersion}:latest"
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.apache \
-                                  --tag ${apacheImage} \
-                                  --push
-                                """
-                            }
-                        }
-                    }
-                    stage("Build CLI Image for PHP ${PHP_VERSION}") {
-                        steps {
-                            script {
-                                def tagVersion = PHP_VERSION.replace('.', '')
 
-                                // Build CLI image
-                                def cliImage = "${DOCKER_NAMESPACE}/php${tagVersion}:cli"
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.cli \
-                                  --tag ${cliImage} \
-                                  --push
-                                """
+                                // Nested stages
+                                stage('Build Latest Image') {
+                                    sh """
+                                    docker buildx build . \
+                                      --platform linux/amd64,linux/arm64 \
+                                      --file 8/${PHP_VERSION}/Dockerfile.apache \
+                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
+                                      --push
+                                    """
+                                }
+                                stage('Build CLI Image') {
+                                    sh """
+                                    docker buildx build . \
+                                      --platform linux/amd64,linux/arm64 \
+                                      --file 8/${PHP_VERSION}/Dockerfile.cli \
+                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
+                                      --push
+                                    """
+                                }
+                                stage('Build Dev Image') {
+                                    sh """
+                                    docker buildx build . \
+                                      --platform linux/amd64,linux/arm64 \
+                                      --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
+                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \
+                                      --push
+                                    """
+                                }
                             }
                         }
                     }
-                    stage("Build Dev Image for PHP ${PHP_VERSION}") {
-                        steps {
-                            script {
-                                def tagVersion = PHP_VERSION.replace('.', '')
-
-                                // Build Dev image
-                                def devImage = "${DOCKER_NAMESPACE}/php${tagVersion}:dev"
-                                sh """
-                                docker buildx build . \
-                                  --platform linux/amd64,linux/arm64 \
-                                  --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
-                                  --tag ${devImage} \
-                                  --push
-                                """
-                            }
-                        }
-                    }
-                }
-                when {
-                    beforeAgent true
-                    expression { env.PHP_VERSION != null }
                 }
             }
         }
