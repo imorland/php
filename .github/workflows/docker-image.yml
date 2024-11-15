@@ -42,6 +42,7 @@ jobs:
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
+          --progress=plain \
           --platform linux/amd64,linux/arm64 \
           --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
           --tag ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }} \
@@ -74,6 +75,7 @@ jobs:
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
+          --progress=plain \
           --platform linux/amd64,linux/arm64 \
           --file 8/${{ matrix.php_version }}/Dockerfile.apache.dev \
           --tag ianmgg/php$TAG_VERSION:dev \
