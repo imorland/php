@@ -29,7 +29,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PHP_VERSION'
-                        values '8.3', '8.2', '8.1'
+                        values '8.3'
                     }
                 }
                 stages {
@@ -46,6 +46,7 @@ pipeline {
                                 stage('Build Latest Image') {
                                     sh """
                                     docker buildx build . \
+                                      --no-cache \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
@@ -55,6 +56,7 @@ pipeline {
                                 stage('Build CLI Image') {
                                     sh """
                                     docker buildx build . \
+                                      --no-cache \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.cli \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
@@ -64,6 +66,7 @@ pipeline {
                                 stage('Build Dev Image') {
                                     sh """
                                     docker buildx build . \
+                                      --no-cache \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \
