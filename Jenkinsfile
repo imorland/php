@@ -46,7 +46,7 @@ pipeline {
                                 stage('Build Latest Image') {
                                     sh """
                                     docker buildx build . \
-                                      --progress=plain
+                                      --progress=plain \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
@@ -56,7 +56,7 @@ pipeline {
                                 stage('Build CLI Image') {
                                     sh """
                                     docker buildx build . \
-                                      --progress=plain
+                                      --progress=plain \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.cli \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
@@ -66,7 +66,7 @@ pipeline {
                                 stage('Build Dev Image') {
                                     sh """
                                     docker buildx build . \
-                                      --progress=plain
+                                      --progress=plain \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \
