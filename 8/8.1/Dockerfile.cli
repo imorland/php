@@ -1,30 +1,63 @@
-# Use the PHP 8.1 CLI image as the base image
-FROM islamicnetwork/php:8.1-cli
+FROM php:8.1-cli
 
-# Update and install required Debian packages
-RUN apt-get -y update && \
-    apt-get -y upgrade && \
-    ACCEPT_EULA=Y apt-get install -y \
-        cron && \
+# Ensure interactive shells don't get presented during any apt-get operations
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Setup Debian packages
+RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
+    cron \
+    unzip \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libmcrypt-dev \
+    libzip-dev \
+    libgeoip-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libssl-dev \
+    zlib1g-dev \
+    libpng-dev \
+    libwebp-dev \
+    libjpeg-dev \
+    libaio1 \
+    libonig-dev \
+    apt-file \
+    wget \
+    gnupg \
+    gnupg2 \
+    zip \
+    git \
+    curl \
+    gcc \
+    g++ \
+    autoconf \
+    libc-dev \
+    libc-client-dev \
+    pkg-config \ 
+    libkrb5-dev \
+    iputils-ping && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# # Install and configure PHP extensions
-# RUN pecl install redis apcu memcached timezonedb grpc rdkafka imagick && \
-#     docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg && \
-#     docker-php-ext-install gd calendar gmp ldap sysvmsg pcntl iconv bcmath xml \
-#         mbstring pdo tidy gettext intl pdo_mysql mysqli simplexml xml xsl xmlwriter zip opcache exif sockets && \
-#     docker-php-ext-enable redis apcu memcached timezonedb grpc rdkafka imagick
+# PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
+RUN docker-php-ext-install gd
+RUN docker-php-ext-install intl 
+RUN docker-php-ext-install pdo_mysql 
+RUN docker-php-ext-install xml 
+RUN docker-php-ext-install zip 
+RUN docker-php-ext-install opcache 
+RUN docker-php-ext-install exif
+RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
-# # Update PHP configuration
-# COPY 8/8.1/etc/php/production.ini /usr/local/etc/php/conf.d/
-# RUN echo "log_errors = On \nerror_log = /dev/stderr" > /usr/local/etc/php/conf.d/php-logs.ini
+# PHP settings
+COPY 8/8.1/etc/php/production.ini /usr/local/etc/php/conf.d/
 
-# # Install Composer
-# RUN mkdir -p /usr/local/ssh
-# COPY 8/8.1/etc/ssh/* /usr/local/ssh/
-# RUN sh /usr/local/ssh/install-composer.sh && \
-#     mv composer.phar /usr/local/bin/composer
+# Composer
+COPY 8/8.1/etc/ssh/* /usr/local/ssh/
+RUN sh /usr/local/ssh/install-composer.sh && \
+    mv composer.phar /usr/local/bin/composer
 
-# Set the environment to CLI
+### PROD ENVIRONMENT SPECIFIC ###
+################################
 ENV PROVISION_CONTEXT="cli"

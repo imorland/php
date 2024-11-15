@@ -12,10 +12,16 @@ pipeline {
                 sh 'docker --version'
             }
         }
-        stage('Set up QEMU and Docker Buildx') {
+        stage('Set up QEMU') {
             steps {
                 script {
                     sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                }
+            }
+        }
+        stage('Set up Buildx') {
+            steps {
+                script {
                     // Set up Docker Buildx if not already available
                     sh '''
                     docker buildx create --name phpbuilder --use || true
