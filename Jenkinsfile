@@ -43,21 +43,10 @@ pipeline {
                                 sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
 
                                 // Nested stages
-                                stage('Build Latest Image x64') {
+                                stage('Build Latest Image') {
                                     sh """
                                     docker buildx build . \
-                                      --no-cache \
-                                      --platform linux/amd64 \
-                                      --file 8/${PHP_VERSION}/Dockerfile.apache \
-                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
-                                      --push
-                                    """
-                                }
-                                stage('Build Latest Image ARM') {
-                                    sh """
-                                    docker buildx build . \
-                                      --no-cache \
-                                      --platform linux/arm64 \
+                                      --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
                                       --push
@@ -66,7 +55,6 @@ pipeline {
                                 stage('Build CLI Image') {
                                     sh """
                                     docker buildx build . \
-                                      --no-cache \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.cli \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
@@ -76,7 +64,6 @@ pipeline {
                                 stage('Build Dev Image') {
                                     sh """
                                     docker buildx build . \
-                                      --no-cache \
                                       --platform linux/amd64,linux/arm64 \
                                       --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                                       --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \

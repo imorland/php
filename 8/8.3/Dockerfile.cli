@@ -3,7 +3,7 @@ FROM php:8.3-cli
 # Ensure interactive shells don't get presented during any apt-get operations
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Setup Debian packages and PHP extensions
+# Setup Debian packages
 RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
     cron \
     unzip \
@@ -36,10 +36,18 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     pkg-config \ 
     libkrb5-dev \
     iputils-ping \
-    && rm -r /var/lib/apt/lists/* && \
-    docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg && \
-    docker-php-ext-install gd bcmath intl pdo_mysql mysqli xml zip opcache exif && \
-    printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
+    && rm -r /var/lib/apt/lists/*
+
+# PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
+RUN docker-php-ext-install gd
+RUN docker-php-ext-install intl 
+RUN docker-php-ext-install pdo_mysql 
+RUN docker-php-ext-install xml 
+RUN docker-php-ext-install zip 
+RUN docker-php-ext-install opcache 
+RUN docker-php-ext-install exif
+RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # PHP settings
 COPY 8/8.3/etc/php/production.ini /usr/local/etc/php/conf.d/
