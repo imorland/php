@@ -1,5 +1,5 @@
-# Use the custom PHP 8.2 image as the base image
-FROM ianmgg/php82:latest
+# Use the custom PHP 8.4 image as the base image
+FROM ianmgg/php84:latest
 
 ### DEV ENVIRONMENT SPECIFIC ###
 ################################
@@ -13,5 +13,5 @@ RUN pecl install xdebug && \
     chmod 777 /var/log/xdebug.log
 
 # Configure PHP
-COPY 8/8.2/etc/php/development.ini /usr/local/etc/php/conf.d/
+COPY 8/8.4/etc/php/development.ini /usr/local/etc/php/conf.d/
 RUN rm -rf /usr/local/etc/php/conf.d/production.ini

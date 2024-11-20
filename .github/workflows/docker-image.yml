@@ -1,6 +1,9 @@
 name: Docker Image CI
 
 on:
+  schedule:
+    # Runs every 2 weeks on Monday at 00:00 UTC
+    - cron: "0 0 */14 * *"
   push:
     branches: [ master ]
   pull_request:
@@ -15,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1']
+        php_version: ['8.4', '8.3', '8.2', '8.1']
         config: 
           - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
           - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
@@ -39,6 +42,7 @@ jobs:
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
+          --progress=plain \
           --platform linux/amd64,linux/arm64 \
           --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
           --tag ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }} \
@@ -50,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1']
+        php_version: ['8.4', '8.3', '8.2', '8.1']
     steps:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -71,6 +75,7 @@ jobs:
     - name: Build and Push the Docker image
       run: |
         docker buildx build . \
+          --progress=plain \
           --platform linux/amd64,linux/arm64 \
           --file 8/${{ matrix.php_version }}/Dockerfile.apache.dev \
           --tag ianmgg/php$TAG_VERSION:dev \

@@ -4,7 +4,7 @@ FROM ianmgg/php83:latest
 ### DEV ENVIRONMENT SPECIFIC ###
 ################################
 ENV PROVISION_CONTEXT="development"
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install xdebug, enable it, and configure the log
 RUN pecl install xdebug && \

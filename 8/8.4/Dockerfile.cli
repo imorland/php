@@ -1,4 +1,4 @@
-FROM php:8.1-cli
+FROM php:8.4.0RC4-cli
 
 # Ensure interactive shells don't get presented during any apt-get operations
 ENV DEBIAN_FRONTEND=noninteractive
@@ -45,10 +45,10 @@ RUN docker-php-ext-install gd calendar intl pdo_mysql xml zip opcache exif pcntl
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # PHP settings
-COPY 8/8.1/etc/php/production.ini /usr/local/etc/php/conf.d/
+COPY 8/8.4/etc/php/production.ini /usr/local/etc/php/conf.d/
 
 # Composer
-COPY 8/8.1/etc/ssh/* /usr/local/ssh/
+COPY 8/8.4/etc/ssh/* /usr/local/ssh/
 RUN sh /usr/local/ssh/install-composer.sh && \
     mv composer.phar /usr/local/bin/composer
 

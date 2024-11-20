@@ -1,4 +1,4 @@
-FROM php:8.0-apache
+FROM php:8.4.0RC4-apache
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -44,29 +44,24 @@ RUN docker-php-ext-install gd calendar intl pdo_mysql xml zip opcache exif
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # Apache settings
-COPY 8/8.0/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
-COPY 8/8.0/etc/apache2/apache2.conf /etc/apache2/apache2.conf
-COPY 8/8.0/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
-COPY 8/8.0/etc/ssh/* /usr/local/ssh/
+COPY 8/8.4/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
+COPY 8/8.4/etc/apache2/apache2.conf /etc/apache2/apache2.conf
+COPY 8/8.4/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+COPY 8/8.4/etc/ssh/* /usr/local/ssh/
 
 # PHP settings
-COPY 8/8.0/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
+COPY 8/8.4/etc/php/production.ini /usr/local/etc/php/conf.d/production.ini
 
 # Composer
 RUN mkdir -p /usr/local/ssh && \
     sh /usr/local/ssh/install-composer.sh && \
-    mv composer.phar /usr/local/bin/composer
-
-# Apache modules
-RUN a2enmod proxy proxy_http proxy_ajp rewrite deflate headers proxy_balancer proxy_connect ssl cache expires && \
+    mv composer.phar /usr/local/bin/composer && \
+    a2enmod proxy proxy_http proxy_ajp rewrite deflate headers proxy_balancer proxy_connect ssl cache expires && \
     sed -i 's/Listen 80/Listen 8080/g' /etc/apache2/ports.conf && \
     chmod g+w /var/log/apache2 && \
     chmod 777 /var/lock/apache2 && \
     chmod 777 /var/run/apache2 && \
     echo "<?php echo phpinfo(); ?>" > /var/www/html/index.php
-
-# Apache configuration test
-RUN apachectl configtest
 
 EXPOSE 8080
 
