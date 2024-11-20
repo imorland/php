@@ -5,7 +5,7 @@ on:
     # Runs every 2 weeks on Monday at 00:00 UTC
     - cron: "0 0 */14 * *"
   push:
-    branches: [ im/jenkins ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1', '8.0']
+        php_version: ['8.4', '8.3', '8.2', '8.1']
         config: 
           - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
           - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php_version: ['8.3', '8.2', '8.1', '8.0']
+        php_version: ['8.4', '8.3', '8.2', '8.1']
     steps:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
