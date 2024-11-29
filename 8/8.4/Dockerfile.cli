@@ -35,12 +35,12 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     libc-client-dev \
     pkg-config \ 
     libkrb5-dev \
-    iputils-ping && \
+    iputils-ping \
     netcat-traditional \
     default-mysql-client \
     util-linux \
     gosu \
-    jq \
+    jq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
