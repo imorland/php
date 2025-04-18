@@ -20,6 +20,10 @@ pipeline {
             steps {
                 checkout scm
                 sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                sh 'docker version'
+                sh 'docker buildx version'
+                // Use tonistiigi/binfmt for better cross-platform support
+                sh 'docker run --privileged --rm tonistiigi/binfmt --install all || docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
                 stash includes: '**', name: 'source-code'
             }
         }
@@ -32,7 +36,7 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // QEMU setup already done in Prepare Workspace stage
                             sh '''
                             docker buildx create --name PHPbuilder-apache-amd64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-apache-amd64-${BUILD_NUMBER} --bootstrap
@@ -44,7 +48,9 @@ pipeline {
                               --platform linux/amd64 \
                               --file 8/${PHP_VERSION}/Dockerfile.apache \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
@@ -73,7 +79,9 @@ pipeline {
                               --platform linux/arm64 \
                               --file 8/${PHP_VERSION}/Dockerfile.apache \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
@@ -102,7 +110,9 @@ pipeline {
                               --platform linux/amd64 \
                               --file 8/${PHP_VERSION}/Dockerfile.cli \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
@@ -131,7 +141,9 @@ pipeline {
                               --platform linux/arm64 \
                               --file 8/${PHP_VERSION}/Dockerfile.cli \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
@@ -195,7 +207,9 @@ pipeline {
                               --platform linux/amd64 \
                               --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
@@ -224,7 +238,9 @@ pipeline {
                               --platform linux/arm64 \
                               --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
-                              --push
+                              --push \
+                              --no-cache \
+                              --build-arg BUILDKIT_INLINE_CACHE=1
                             """
                         }
                     }
