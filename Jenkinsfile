@@ -1,116 +1,138 @@
 pipeline {
     agent any
+    options {
+        skipDefaultCheckout(false)
+    }
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_BUILDKIT = "1"
-        DOCKER_CLI_EXPERIMENTAL = "enabled"
-        DOCKER_NAMESPACE = "ianmgg"
+        WATCHTOWER_TOKEN       = credentials('watchtower-token')
+        DOCKER_BUILDKIT        = '1'
+        DOCKER_CLI_EXPERIMENTAL = 'enabled'
+        DOCKER_NAMESPACE       = 'ianmgg'
+        PHP_VERSION            = '8.3'
+        TAG_VERSION            = '83'
     }
     stages {
-        stage('Test Docker') {
-            steps {
-                sh 'docker --version'
-            }
-        }
-        stage('Set up QEMU') {
+        stage('Setup') {
             steps {
                 script {
-                    sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
-                }
-            }
-        }
-        stage('Set up Buildx') {
-            steps {
-                script {
-                    // Set up Docker Buildx if not already available
-                    sh '''
-                    docker buildx create --name phpbuilder --use || true
-                    docker buildx inspect phpbuilder --bootstrap
-                    '''
+                    // Login to Docker Hub once at the beginning
+                    sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                 }
             }
         }
         stage('Build Images in Parallel') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PHP_VERSION'
-                        values '8.3'
+            parallel {
+                stage('Build Apache Image') {
+                    agent any
+                    steps {
+                        script {
+                            // Set up QEMU and Buildx on this agent
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-apache --use || true
+                            docker buildx inspect PHPbuilder-apache --bootstrap
+                            '''
+                            
+                            // Build and push the Apache image
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/amd64,linux/arm64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.apache \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-apache || true'
+                        }
                     }
                 }
-                stages {
-                    stage('Build Images') { // Static stage name
-                        steps {
-                            script {
-                                echo "Building images for PHP ${PHP_VERSION}" // Log PHP version
-                                def tagVersion = PHP_VERSION.replace('.', '')
-
-                                // Login to Docker Hub
-                                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-
-                                // Nested stages
-                                stage('Build Latest Image') {
-                                    sh """
-                                    docker buildx build . \
-                                      --progress=plain \
-                                      --platform linux/arm64 \
-                                      --file 8/${PHP_VERSION}/Dockerfile.apache \
-                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:latest \
-                                      --push
-                                    """
-                                }
-                                stage('Build CLI Image') {
-                                    sh """
-                                    docker buildx build . \
-                                      --progress=plain \
-                                      --platform linux/arm64 \
-                                      --file 8/${PHP_VERSION}/Dockerfile.cli \
-                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:cli \
-                                      --push
-                                    """
-                                }
-                                stage('Build Dev Image') {
-                                    sh """
-                                    docker buildx build . \
-                                      --progress=plain \
-                                      --platform linux/arm64 \
-                                      --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
-                                      --tag ${DOCKER_NAMESPACE}/php${tagVersion}:dev \
-                                      --push
-                                    """
-                                }
-                            }
+                
+                stage('Build CLI Image') {
+                    agent any
+                    steps {
+                        script {
+                            // Set up QEMU and Buildx on this agent
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-cli --use || true
+                            docker buildx inspect PHPbuilder-cli --bootstrap
+                            '''
+                            
+                            // Build and push the CLI image
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/amd64,linux/arm64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.cli \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-cli || true'
                         }
                     }
                 }
             }
         }
+        
+        // Dev image depends on Apache image, so it runs after the parallel stage
+        stage('Build Dev Image') {
+            steps {
+                script {
+                    // Set up QEMU and Buildx
+                    sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                    sh '''
+                    docker buildx create --name PHPbuilder-dev --use || true
+                    docker buildx inspect PHPbuilder-dev --bootstrap
+                    '''
+                    
+                    // Build and push the Dev image
+                    sh """
+                    docker buildx build . \
+                      --progress=plain \
+                      --platform linux/amd64,linux/arm64 \
+                      --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
+                      --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      --push
+                    """
+                }
+            }
+            post {
+                always {
+                    sh 'docker buildx rm PHPbuilder-dev || true'
+                }
+            }
+        }
+        
+        stage('Schedule Watchtower Update') {
+            steps {
+                script {
+                    sh '''
+                    docker run -d --rm \
+                      busybox:1.35 \
+                      sh -c "sleep 60 && \
+                        wget -qO- \\
+                          --header 'Authorization: Bearer $WATCHTOWER_TOKEN' \\
+                          http://host.docker.internal:8081/v1/update"
+                    '''
+                }
+            }
+        }
     }
     post {
-        always {
-            script {
-                // Clean up builder
-                sh 'docker buildx rm phpbuilder || true'
-            }
-        }
         success {
-            echo 'All Docker images successfully built and pushed to Docker Hub!'
+            echo "Successfully built and pushed PHP ${PHP_VERSION} Docker images"
         }
         failure {
-            script {
-                echo 'Build or push failed.'
-                // Capture details about the failed build
-                echo "Failed during PHP version: ${env.PHP_VERSION}"
-                echo "Check the logs for detailed information."
-
-                // Save the logs to an artifact (optional)
-                archiveArtifacts artifacts: '**/logs/**', allowEmptyArchive: true
-
-                // Notify team (example: Slack or email)
-                // Uncomment if integration is configured
-                // slackSend channel: '#build-failures', message: "Build failed for PHP version: ${env.PHP_VERSION}. Check Jenkins for details."
-                // mail to: 'team@example.com', subject: 'Build Failed', body: "Build failed for PHP version: ${env.PHP_VERSION}. Check Jenkins for details."
-            }
+            echo "Failed to build PHP ${PHP_VERSION} Docker images"
         }
     }
 }

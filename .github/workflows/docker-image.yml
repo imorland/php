@@ -4,8 +4,6 @@ on:
   schedule:
     # Runs every 2 weeks on Monday at 00:00 UTC
     - cron: "0 0 */14 * *"
-  push:
-    branches: [ master ]
   workflow_dispatch:
   repository_dispatch:
     types: [build-docker]
