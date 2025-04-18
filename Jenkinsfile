@@ -104,7 +104,9 @@ pipeline {
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
                               --push \
                               --no-cache \
-                              --build-arg BUILDKIT_INLINE_CACHE=1
+                              --build-arg BUILDKIT_INLINE_CACHE=1 \
+                              --memory=4g \
+                              --memory-swap=8g
                             """
                         }
                     }
@@ -194,7 +196,9 @@ pipeline {
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
                               --push \
                               --no-cache \
-                              --build-arg BUILDKIT_INLINE_CACHE=1
+                              --build-arg BUILDKIT_INLINE_CACHE=1 \
+                              --memory=4g \
+                              --memory-swap=8g
                             """
                         }
                     }
@@ -333,7 +337,9 @@ pipeline {
                               --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
                               --push \
                               --no-cache \
-                              --build-arg BUILDKIT_INLINE_CACHE=1
+                              --build-arg BUILDKIT_INLINE_CACHE=1 \
+                              --memory=4g \
+                              --memory-swap=8g
                             """
                         }
                     }
