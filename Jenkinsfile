@@ -45,6 +45,9 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
+                            // Login to Docker Hub on this agent
+                            sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                            
                             // QEMU setup already done in Prepare Workspace stage
                             sh '''
                             docker buildx create --name PHPbuilder-apache-amd64-${BUILD_NUMBER} --use || true
@@ -90,6 +93,9 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
+                            // Login to Docker Hub on this agent
+                            sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                            
                             // Check if we're on a native ARM64 agent
                             sh '''
                             HOST_ARCH=$(uname -m)
@@ -148,6 +154,9 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
+                            // Login to Docker Hub on this agent
+                            sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                            
                             // Check if we're on a native ARM64 agent that needs QEMU for AMD64 builds
                             sh '''
                             HOST_ARCH=$(uname -m)
@@ -203,6 +212,9 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
+                            // Login to Docker Hub on this agent
+                            sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                            
                             // Check if we're on a native ARM64 agent that needs QEMU for AMD64 builds
                             sh '''
                             HOST_ARCH=$(uname -m)
@@ -263,6 +275,9 @@ pipeline {
             steps {
                 unstash 'source-code'
                 script {
+                    // Login to Docker Hub on this agent
+                    sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                    
                     // Create manifest for Apache image
                     sh """
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
@@ -364,7 +379,21 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // Login to Docker Hub on this agent
+                            sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                            
+                            // Check if we're on a native ARM64 agent
+                            sh '''
+                            HOST_ARCH=$(uname -m)
+                            if [ "$HOST_ARCH" != "aarch64" ]; then
+                              # Only set up QEMU if we're not on a native ARM64 host
+                              echo "Setting up QEMU for ARM64 emulation on $HOST_ARCH..."
+                              docker run --rm --privileged tonistiigi/binfmt:latest --install arm64 || docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                              echo "10" > /proc/sys/vm/nr_hugepages || true  # Optimize memory for QEMU
+                            else
+                              echo "Running on native ARM64 host, no QEMU needed for ARM64 builds"
+                            fi
+                            '''
                             sh '''
                             docker buildx create --name PHPbuilder-dev-arm64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-dev-arm64-${BUILD_NUMBER} --bootstrap
@@ -414,6 +443,9 @@ pipeline {
             steps {
                 unstash 'source-code'
                 script {
+                    // Login to Docker Hub on this agent
+                    sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                    
                     sh """
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
                       --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
