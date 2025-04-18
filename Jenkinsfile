@@ -278,29 +278,94 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
-                    // Remove existing manifests if they exist
+                    // Check if the architecture-specific images are manifest lists
                     sh '''
+                    # Remove existing manifests
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
+                    
+                    # Function to check if an image is a manifest list
+                    check_image() {
+                      local image=$1
+                      local is_manifest=false
+                      
+                      # Check if the image exists and is a manifest list
+                      if docker manifest inspect $image &>/dev/null; then
+                        if docker manifest inspect $image | grep -q "manifests"; then
+                          echo "$image is a manifest list"
+                          is_manifest=true
+                        else
+                          echo "$image is a single-architecture image"
+                        fi
+                      else
+                        echo "$image does not exist"
+                      fi
+                      
+                      echo $is_manifest
+                    }
+                    
+                    # Check all images
+                    AMD64_APACHE_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64)
+                    ARM64_APACHE_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64)
+                    AMD64_CLI_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64)
+                    ARM64_CLI_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64)
+                    
+                    # Save results to files for later use
+                    echo $AMD64_APACHE_IS_MANIFEST > amd64_apache_manifest.txt
+                    echo $ARM64_APACHE_IS_MANIFEST > arm64_apache_manifest.txt
+                    echo $AMD64_CLI_IS_MANIFEST > amd64_cli_manifest.txt
+                    echo $ARM64_CLI_IS_MANIFEST > arm64_cli_manifest.txt
                     '''
                     
-                    // Create manifest for Apache image with --insecure flag
-                    sh """
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
-                      --insecure
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
-                    """
+                    // Create Apache manifest
+                    sh '''
+                    # Read the check results
+                    AMD64_APACHE_IS_MANIFEST=$(cat amd64_apache_manifest.txt)
+                    ARM64_APACHE_IS_MANIFEST=$(cat arm64_apache_manifest.txt)
                     
-                    // Create manifest for CLI image with --insecure flag
-                    sh """
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
-                      --insecure
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
-                    """
+                    # Only proceed if both images are not manifest lists
+                    if [ "$AMD64_APACHE_IS_MANIFEST" = "false" ] && [ "$ARM64_APACHE_IS_MANIFEST" = "false" ]; then
+                      echo "Creating Apache manifest with single-architecture images"
+                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
+                        --insecure
+                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
+                    else
+                      echo "Skipping Apache manifest creation as one or both images are already manifest lists"
+                      # Pull the images to make them available locally
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 || true
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 || true
+                      # Tag them directly
+                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest || true
+                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest || true
+                    fi
+                    '''
+                    
+                    // Create CLI manifest
+                    sh '''
+                    # Read the check results
+                    AMD64_CLI_IS_MANIFEST=$(cat amd64_cli_manifest.txt)
+                    ARM64_CLI_IS_MANIFEST=$(cat arm64_cli_manifest.txt)
+                    
+                    # Only proceed if both images are not manifest lists
+                    if [ "$AMD64_CLI_IS_MANIFEST" = "false" ] && [ "$ARM64_CLI_IS_MANIFEST" = "false" ]; then
+                      echo "Creating CLI manifest with single-architecture images"
+                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
+                        --insecure
+                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
+                    else
+                      echo "Skipping CLI manifest creation as one or both images are already manifest lists"
+                      # Pull the images to make them available locally
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 || true
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 || true
+                      # Tag them directly
+                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli || true
+                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli || true
+                    fi
+                    '''
                 }
             }
             post {
@@ -454,18 +519,64 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
-                    // Remove existing manifest if it exists
+                    // Check if the architecture-specific images are manifest lists
                     sh '''
+                    # Remove existing manifest
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
+                    
+                    # Function to check if an image is a manifest list
+                    check_image() {
+                      local image=$1
+                      local is_manifest=false
+                      
+                      # Check if the image exists and is a manifest list
+                      if docker manifest inspect $image &>/dev/null; then
+                        if docker manifest inspect $image | grep -q "manifests"; then
+                          echo "$image is a manifest list"
+                          is_manifest=true
+                        else
+                          echo "$image is a single-architecture image"
+                        fi
+                      else
+                        echo "$image does not exist"
+                      fi
+                      
+                      echo $is_manifest
+                    }
+                    
+                    # Check dev images
+                    AMD64_DEV_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64)
+                    ARM64_DEV_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64)
+                    
+                    # Save results to files for later use
+                    echo $AMD64_DEV_IS_MANIFEST > amd64_dev_manifest.txt
+                    echo $ARM64_DEV_IS_MANIFEST > arm64_dev_manifest.txt
                     '''
                     
-                    sh """
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
-                      --insecure
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
-                    """
+                    // Create Dev manifest
+                    sh '''
+                    # Read the check results
+                    AMD64_DEV_IS_MANIFEST=$(cat amd64_dev_manifest.txt)
+                    ARM64_DEV_IS_MANIFEST=$(cat arm64_dev_manifest.txt)
+                    
+                    # Only proceed if both images are not manifest lists
+                    if [ "$AMD64_DEV_IS_MANIFEST" = "false" ] && [ "$ARM64_DEV_IS_MANIFEST" = "false" ]; then
+                      echo "Creating Dev manifest with single-architecture images"
+                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
+                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
+                        --insecure
+                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
+                    else
+                      echo "Skipping Dev manifest creation as one or both images are already manifest lists"
+                      # Pull the images to make them available locally
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 || true
+                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 || true
+                      # Tag them directly
+                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev || true
+                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev || true
+                    fi
+                    '''
                 }
             }
             post {
