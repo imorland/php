@@ -278,98 +278,22 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
-                    // Check if the architecture-specific images are manifest lists
-                    sh '''
-                    # Remove existing manifests
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
+                    // Create Apache manifest using buildx imagetools
+                    sh """
+                    # Create Apache manifest
+                    docker buildx imagetools create --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64
                     
-                    # Function to check if an image is a manifest list
-                    check_image() {
-                      local image=$1
-                      local is_manifest=false
-                      
-                      # Check if the image exists and is a manifest list
-                      if docker manifest inspect $image &>/dev/null; then
-                        if docker manifest inspect $image | grep -q "manifests"; then
-                          echo "$image is a manifest list"
-                          is_manifest=true
-                        else
-                          echo "$image is a single-architecture image"
-                        fi
-                      else
-                        echo "$image does not exist"
-                      fi
-                      
-                      echo $is_manifest
-                    }
+                    # Create CLI manifest
+                    docker buildx imagetools create --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64
                     
-                    # Check all images
-                    AMD64_APACHE_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64)
-                    ARM64_APACHE_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64)
-                    AMD64_CLI_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64)
-                    ARM64_CLI_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64)
-                    
-                    # Save results to files for later use
-                    echo $AMD64_APACHE_IS_MANIFEST > amd64_apache_manifest.txt
-                    echo $ARM64_APACHE_IS_MANIFEST > arm64_apache_manifest.txt
-                    echo $AMD64_CLI_IS_MANIFEST > amd64_cli_manifest.txt
-                    echo $ARM64_CLI_IS_MANIFEST > arm64_cli_manifest.txt
-                    '''
-                    
-                    // Create Apache manifest using specific digests from the architecture-specific manifests
-                    sh '''
-                    # Remove any existing manifests
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
-                    
-                    # Extract the specific architecture digests from the manifest lists
-                    AMD64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 | grep -A 5 '"architecture": "amd64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    ARM64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 | grep -A 5 '"architecture": "arm64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    
-                    echo "AMD64 digest: $AMD64_DIGEST"
-                    echo "ARM64 digest: $ARM64_DIGEST"
-                    
-                    # Create a new manifest with the specific digests
-                    echo "Creating Apache manifest with specific architecture digests..."
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$AMD64_DIGEST \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$ARM64_DIGEST
-                    
-                    # Push the manifest
-                    echo "Pushing Apache manifest..."
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
-                    
-                    # Verify the manifest includes both architectures
-                    echo "Verifying Apache manifest..."
-                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
-                    '''
-                    
-                    // Create CLI manifest using specific digests from the architecture-specific manifests
-                    sh '''
-                    # Remove any existing manifests
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
-                    
-                    # Extract the specific architecture digests from the manifest lists
-                    AMD64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 | grep -A 5 '"architecture": "amd64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    ARM64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 | grep -A 5 '"architecture": "arm64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    
-                    echo "AMD64 digest: $AMD64_DIGEST"
-                    echo "ARM64 digest: $ARM64_DIGEST"
-                    
-                    # Create a new manifest with the specific digests
-                    echo "Creating CLI manifest with specific architecture digests..."
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$AMD64_DIGEST \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$ARM64_DIGEST
-                    
-                    # Push the manifest
-                    echo "Pushing CLI manifest..."
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
-                    
-                    # Verify the manifest includes both architectures
-                    echo "Verifying CLI manifest..."
-                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
-                    '''
+                    # Verify the manifests
+                    docker buildx imagetools inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
+                    docker buildx imagetools inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
+                    """
                 }
             }
             post {
@@ -523,66 +447,16 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
-                    // Check if the architecture-specific images are manifest lists
-                    sh '''
-                    # Remove existing manifest
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
+                    // Create Dev manifest using buildx imagetools
+                    sh """
+                    # Create Dev manifest
+                    docker buildx imagetools create --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64
                     
-                    # Function to check if an image is a manifest list
-                    check_image() {
-                      local image=$1
-                      local is_manifest=false
-                      
-                      # Check if the image exists and is a manifest list
-                      if docker manifest inspect $image &>/dev/null; then
-                        if docker manifest inspect $image | grep -q "manifests"; then
-                          echo "$image is a manifest list"
-                          is_manifest=true
-                        else
-                          echo "$image is a single-architecture image"
-                        fi
-                      else
-                        echo "$image does not exist"
-                      fi
-                      
-                      echo $is_manifest
-                    }
-                    
-                    # Check dev images
-                    AMD64_DEV_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64)
-                    ARM64_DEV_IS_MANIFEST=$(check_image ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64)
-                    
-                    # Save results to files for later use
-                    echo $AMD64_DEV_IS_MANIFEST > amd64_dev_manifest.txt
-                    echo $ARM64_DEV_IS_MANIFEST > arm64_dev_manifest.txt
-                    '''
-                    
-                    // Create Dev manifest using specific digests from the architecture-specific manifests
-                    sh '''
-                    # Remove any existing manifests
-                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
-                    
-                    # Extract the specific architecture digests from the manifest lists
-                    AMD64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 | grep -A 5 '"architecture": "amd64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    ARM64_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 | grep -A 5 '"architecture": "arm64"' | grep "digest" | head -1 | sed -E 's/.*"digest": "([^"]+)".*/\\1/')
-                    
-                    echo "AMD64 digest: $AMD64_DIGEST"
-                    echo "ARM64 digest: $ARM64_DIGEST"
-                    
-                    # Create a new manifest with the specific digests
-                    echo "Creating Dev manifest with specific architecture digests..."
-                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$AMD64_DIGEST \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}@$ARM64_DIGEST
-                    
-                    # Push the manifest
-                    echo "Pushing Dev manifest..."
-                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
-                    
-                    # Verify the manifest includes both architectures
-                    echo "Verifying Dev manifest..."
-                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
-                    '''
+                    # Verify the manifest
+                    docker buildx imagetools inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
+                    """
                 }
             }
             post {
