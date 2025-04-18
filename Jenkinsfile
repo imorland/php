@@ -317,27 +317,27 @@ pipeline {
                     echo $ARM64_CLI_IS_MANIFEST > arm64_cli_manifest.txt
                     '''
                     
-                    // Create Apache manifest - simplified approach
+                    // Create Apache manifest using digest references
                     sh '''
                     # Remove any existing manifests
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
                     
-                    # Pull both architecture images to ensure they're available
-                    echo "Pulling architecture-specific images..."
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 || echo "Failed to pull amd64 image"
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 || echo "Failed to pull arm64 image"
+                    # Extract digests from the manifest lists
+                    echo "Extracting digests from manifest lists..."
                     
-                    # Create the manifest with both architectures
+                    # For AMD64 Apache
+                    AMD64_APACHE_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 | grep -A 10 '"architecture": "amd64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "AMD64 Apache digest: $AMD64_APACHE_DIGEST"
+                    
+                    # For ARM64 Apache
+                    ARM64_APACHE_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 | grep -A 10 '"architecture": "arm64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "ARM64 Apache digest: $ARM64_APACHE_DIGEST"
+                    
+                    # Create the manifest with digest references
                     echo "Creating Apache manifest with both architectures..."
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64
-                    
-                    # Explicitly annotate architectures
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 --os linux --arch amd64
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 --os linux --arch arm64
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${AMD64_APACHE_DIGEST} \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${ARM64_APACHE_DIGEST}
                     
                     # Push the manifest
                     echo "Pushing Apache manifest..."
@@ -348,27 +348,27 @@ pipeline {
                     docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
                     '''
                     
-                    // Create CLI manifest - simplified approach
+                    // Create CLI manifest using digest references
                     sh '''
                     # Remove any existing manifests
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
                     
-                    # Pull both architecture images to ensure they're available
-                    echo "Pulling architecture-specific images..."
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 || echo "Failed to pull amd64 image"
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 || echo "Failed to pull arm64 image"
+                    # Extract digests from the manifest lists
+                    echo "Extracting digests from manifest lists..."
                     
-                    # Create the manifest with both architectures
+                    # For AMD64 CLI
+                    AMD64_CLI_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 | grep -A 10 '"architecture": "amd64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "AMD64 CLI digest: $AMD64_CLI_DIGEST"
+                    
+                    # For ARM64 CLI
+                    ARM64_CLI_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 | grep -A 10 '"architecture": "arm64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "ARM64 CLI digest: $ARM64_CLI_DIGEST"
+                    
+                    # Create the manifest with digest references
                     echo "Creating CLI manifest with both architectures..."
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64
-                    
-                    # Explicitly annotate architectures
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 --os linux --arch amd64
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 --os linux --arch arm64
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${AMD64_CLI_DIGEST} \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${ARM64_CLI_DIGEST}
                     
                     # Push the manifest
                     echo "Pushing CLI manifest..."
@@ -565,27 +565,27 @@ pipeline {
                     echo $ARM64_DEV_IS_MANIFEST > arm64_dev_manifest.txt
                     '''
                     
-                    // Create Dev manifest - simplified approach
+                    // Create Dev manifest using digest references
                     sh '''
                     # Remove any existing manifests
                     docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
                     
-                    # Pull both architecture images to ensure they're available
-                    echo "Pulling architecture-specific images..."
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 || echo "Failed to pull amd64 image"
-                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 || echo "Failed to pull arm64 image"
+                    # Extract digests from the manifest lists
+                    echo "Extracting digests from manifest lists..."
                     
-                    # Create the manifest with both architectures
+                    # For AMD64 Dev
+                    AMD64_DEV_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 | grep -A 10 '"architecture": "amd64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "AMD64 Dev digest: $AMD64_DEV_DIGEST"
+                    
+                    # For ARM64 Dev
+                    ARM64_DEV_DIGEST=$(docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 | grep -A 10 '"architecture": "arm64"' | grep digest | head -1 | awk -F\\" '{print $4}')
+                    echo "ARM64 Dev digest: $ARM64_DEV_DIGEST"
+                    
+                    # Create the manifest with digest references
                     echo "Creating Dev manifest with both architectures..."
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64
-                    
-                    # Explicitly annotate architectures
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 --os linux --arch amd64
-                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 --os linux --arch arm64
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${AMD64_DEV_DIGEST} \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}@${ARM64_DEV_DIGEST}
                     
                     # Push the manifest
                     echo "Pushing Dev manifest..."
