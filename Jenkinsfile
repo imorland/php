@@ -12,13 +12,7 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         DOCKER_CLI_EXPERIMENTAL = 'enabled'
         DOCKER_NAMESPACE = 'ianmgg'
-        // Define PHP versions to build - add or remove versions as needed
-        PHP_VERSIONS = """[
-            ['version': '8.1', 'tag': '81'],
-            ['version': '8.2', 'tag': '82'],
-            ['version': '8.3', 'tag': '83'],
-            ['version': '8.4', 'tag': '84']
-        ]"""
+        // PHP versions are now defined directly in the script
     }
     stages {
         stage('Prepare Workspace') {
@@ -29,7 +23,7 @@ pipeline {
                            title: "Build Started: PHP Docker Images", 
                            description: "Building multiple PHP Docker images (Apache, CLI, Dev) for amd64 and arm64 platforms",
                            link: env.BUILD_URL,
-                           result: "INFO",
+                           result: "SUCCESS", // Changed from INFO to SUCCESS as INFO is not valid
                            footer: "Build #${BUILD_NUMBER}"
                 
                 checkout scm
@@ -45,7 +39,13 @@ pipeline {
         stage('Build All Versions') {
             steps {
                 script {
-                    def phpVersions = readJSON text: env.PHP_VERSIONS
+                    // Define PHP versions directly in the script instead of using readJSON
+                    def phpVersions = [
+                        [version: '8.1', tag: '81'],
+                        [version: '8.2', tag: '82'],
+                        [version: '8.3', tag: '83'],
+                        [version: '8.4', tag: '84']
+                    ]
                     
                     // Create a map to hold all parallel stages
                     def parallelStages = [:]
@@ -449,7 +449,13 @@ pipeline {
         success {
             node(null) {
                 script {
-                    def phpVersions = readJSON text: env.PHP_VERSIONS
+                    // Define PHP versions directly in the script instead of using readJSON
+                    def phpVersions = [
+                        [version: '8.1', tag: '81'],
+                        [version: '8.2', tag: '82'],
+                        [version: '8.3', tag: '83'],
+                        [version: '8.4', tag: '84']
+                    ]
                     def versionsList = phpVersions.collect { "PHP ${it.version}" }.join(", ")
                     def imagesList = phpVersions.collect { phpConfig ->
                         def tagVersion = phpConfig.tag
@@ -470,7 +476,13 @@ pipeline {
         failure {
             node(null) {
                 script {
-                    def phpVersions = readJSON text: env.PHP_VERSIONS
+                    // Define PHP versions directly in the script instead of using readJSON
+                    def phpVersions = [
+                        [version: '8.1', tag: '81'],
+                        [version: '8.2', tag: '82'],
+                        [version: '8.3', tag: '83'],
+                        [version: '8.4', tag: '84']
+                    ]
                     def versionsList = phpVersions.collect { "PHP ${it.version}" }.join(", ")
                     
                     discordSend webhookURL: "${DISCORD_WEBHOOK}", 
