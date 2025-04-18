@@ -17,7 +17,7 @@ pipeline {
     }
     stages {
         stage('Prepare Workspace') {
-            agent any
+            agent { label 'amd64' }
             steps {
                 // Send build started notification
                 discordSend webhookURL: "${DISCORD_WEBHOOK}", 
@@ -41,7 +41,7 @@ pipeline {
         stage('Build All Images') {
             parallel {
                 stage('Build Apache AMD64') {
-                    agent any
+                    agent { label 'amd64' }
                     steps {
                         unstash 'source-code'
                         script {
@@ -86,11 +86,15 @@ pipeline {
                 }
                 
                 stage('Build Apache ARM64') {
-                    agent any
+                    agent { label 'arm64' }
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // Enhanced QEMU setup for better performance
+                            sh '''
+                            docker run --rm --privileged tonistiigi/binfmt:latest --install arm64 || docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                            echo "10" > /proc/sys/vm/nr_hugepages || true  # Optimize memory for QEMU
+                            '''
                             sh '''
                             docker buildx create --name PHPbuilder-apache-arm64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-apache-arm64-${BUILD_NUMBER} --bootstrap
@@ -105,8 +109,9 @@ pipeline {
                               --push \
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              --memory=8g \
-                              --memory-swap=16g
+                              --memory=12g \
+                              --memory-swap=24g \
+                              --cpus=8
                             """
                         }
                     }
@@ -133,7 +138,7 @@ pipeline {
                 }
                 
                 stage('Build CLI AMD64') {
-                    agent any
+                    agent { label 'amd64' }
                     steps {
                         unstash 'source-code'
                         script {
@@ -178,7 +183,7 @@ pipeline {
                 }
                 
                 stage('Build CLI ARM64') {
-                    agent any
+                    agent { label 'arm64' }
                     steps {
                         unstash 'source-code'
                         script {
@@ -197,8 +202,9 @@ pipeline {
                               --push \
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              --memory=8g \
-                              --memory-swap=16g
+                              --memory=12g \
+                              --memory-swap=24g \
+                              --cpus=8
                             """
                         }
                     }
@@ -228,7 +234,7 @@ pipeline {
         
         // Create manifests to combine architecture-specific images
         stage('Create Base Manifests') {
-            agent any
+            agent { label 'amd64' }
             steps {
                 unstash 'source-code'
                 script {
@@ -274,7 +280,7 @@ pipeline {
         stage('Build Dev Images') {
             parallel {
                 stage('Build Dev AMD64') {
-                    agent any
+                    agent { label 'amd64' }
                     steps {
                         unstash 'source-code'
                         script {
@@ -319,7 +325,7 @@ pipeline {
                 }
                 
                 stage('Build Dev ARM64') {
-                    agent any
+                    agent { label 'arm64' }
                     steps {
                         unstash 'source-code'
                         script {
@@ -338,8 +344,9 @@ pipeline {
                               --push \
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              --memory=8g \
-                              --memory-swap=16g
+                              --memory=12g \
+                              --memory-swap=24g \
+                              --cpus=8
                             """
                         }
                     }
@@ -369,7 +376,7 @@ pipeline {
         
         // Create manifest for Dev image
         stage('Create Dev Manifest') {
-            agent any
+            agent { label 'amd64' }
             steps {
                 unstash 'source-code'
                 script {
