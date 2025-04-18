@@ -110,8 +110,7 @@ pipeline {
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
                               --memory=12g \
-                              --memory-swap=24g \
-                              --cpus=8
+                              --memory-swap=24g
                             """
                         }
                     }
@@ -203,8 +202,7 @@ pipeline {
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
                               --memory=12g \
-                              --memory-swap=24g \
-                              --cpus=8
+                              --memory-swap=24g
                             """
                         }
                     }
@@ -345,8 +343,7 @@ pipeline {
                               --no-cache \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
                               --memory=12g \
-                              --memory-swap=24g \
-                              --cpus=8
+                              --memory-swap=24g
                             """
                         }
                     }
