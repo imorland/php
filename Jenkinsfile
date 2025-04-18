@@ -90,10 +90,17 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            // Enhanced QEMU setup for better performance
+                            // Check if we're on a native ARM64 agent
                             sh '''
-                            docker run --rm --privileged tonistiigi/binfmt:latest --install arm64 || docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                            echo "10" > /proc/sys/vm/nr_hugepages || true  # Optimize memory for QEMU
+                            HOST_ARCH=$(uname -m)
+                            if [ "$HOST_ARCH" != "aarch64" ]; then
+                              # Only set up QEMU if we're not on a native ARM64 host
+                              echo "Setting up QEMU for ARM64 emulation on $HOST_ARCH..."
+                              docker run --rm --privileged tonistiigi/binfmt:latest --install arm64 || docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                              echo "10" > /proc/sys/vm/nr_hugepages || true  # Optimize memory for QEMU
+                            else
+                              echo "Running on native ARM64 host, no QEMU needed for ARM64 builds"
+                            fi
                             '''
                             sh '''
                             docker buildx create --name PHPbuilder-apache-arm64-${BUILD_NUMBER} --use || true
@@ -141,7 +148,17 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // Check if we're on a native ARM64 agent that needs QEMU for AMD64 builds
+                            sh '''
+                            HOST_ARCH=$(uname -m)
+                            if [ "$HOST_ARCH" = "aarch64" ]; then
+                              # Set up QEMU for AMD64 emulation on ARM64 host
+                              echo "Setting up QEMU for AMD64 emulation on ARM64 host..."
+                              docker run --rm --privileged --platform linux/arm64 tonistiigi/binfmt:latest --install amd64 || true
+                            else
+                              echo "Running on x86_64 host, no QEMU needed for AMD64 builds"
+                            fi
+                            '''
                             sh '''
                             docker buildx create --name PHPbuilder-cli-amd64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-cli-amd64-${BUILD_NUMBER} --bootstrap
@@ -186,7 +203,17 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // Check if we're on a native ARM64 agent that needs QEMU for AMD64 builds
+                            sh '''
+                            HOST_ARCH=$(uname -m)
+                            if [ "$HOST_ARCH" = "aarch64" ]; then
+                              # Set up QEMU for AMD64 emulation on ARM64 host
+                              echo "Setting up QEMU for AMD64 emulation on ARM64 host..."
+                              docker run --rm --privileged --platform linux/arm64 tonistiigi/binfmt:latest --install amd64 || true
+                            else
+                              echo "Running on x86_64 host, no QEMU needed for AMD64 builds"
+                            fi
+                            '''
                             sh '''
                             docker buildx create --name PHPbuilder-cli-arm64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-cli-arm64-${BUILD_NUMBER} --bootstrap
@@ -282,7 +309,17 @@ pipeline {
                     steps {
                         unstash 'source-code'
                         script {
-                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            // Check if we're on a native ARM64 agent that needs QEMU for AMD64 builds
+                            sh '''
+                            HOST_ARCH=$(uname -m)
+                            if [ "$HOST_ARCH" = "aarch64" ]; then
+                              # Set up QEMU for AMD64 emulation on ARM64 host
+                              echo "Setting up QEMU for AMD64 emulation on ARM64 host..."
+                              docker run --rm --privileged --platform linux/arm64 tonistiigi/binfmt:latest --install amd64 || true
+                            else
+                              echo "Running on x86_64 host, no QEMU needed for AMD64 builds"
+                            fi
+                            '''
                             sh '''
                             docker buildx create --name PHPbuilder-dev-amd64-${BUILD_NUMBER} --use || true
                             docker buildx inspect PHPbuilder-dev-amd64-${BUILD_NUMBER} --bootstrap
