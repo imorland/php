@@ -317,54 +317,66 @@ pipeline {
                     echo $ARM64_CLI_IS_MANIFEST > arm64_cli_manifest.txt
                     '''
                     
-                    // Create Apache manifest
+                    // Create Apache manifest - simplified approach
                     sh '''
-                    # Read the check results
-                    AMD64_APACHE_IS_MANIFEST=$(cat amd64_apache_manifest.txt)
-                    ARM64_APACHE_IS_MANIFEST=$(cat arm64_apache_manifest.txt)
+                    # Remove any existing manifests
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
                     
-                    # Only proceed if both images are not manifest lists
-                    if [ "$AMD64_APACHE_IS_MANIFEST" = "false" ] && [ "$ARM64_APACHE_IS_MANIFEST" = "false" ]; then
-                      echo "Creating Apache manifest with single-architecture images"
-                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
-                        --insecure
-                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
-                    else
-                      echo "Skipping Apache manifest creation as one or both images are already manifest lists"
-                      # Pull the images to make them available locally
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 || true
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 || true
-                      # Tag them directly
-                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest || true
-                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest || true
-                    fi
+                    # Pull both architecture images to ensure they're available
+                    echo "Pulling architecture-specific images..."
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 || echo "Failed to pull amd64 image"
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 || echo "Failed to pull arm64 image"
+                    
+                    # Create the manifest with both architectures
+                    echo "Creating Apache manifest with both architectures..."
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64
+                    
+                    # Explicitly annotate architectures
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 --os linux --arch amd64
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 --os linux --arch arm64
+                    
+                    # Push the manifest
+                    echo "Pushing Apache manifest..."
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
+                    
+                    # Verify the manifest includes both architectures
+                    echo "Verifying Apache manifest..."
+                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
                     '''
                     
-                    // Create CLI manifest
+                    // Create CLI manifest - simplified approach
                     sh '''
-                    # Read the check results
-                    AMD64_CLI_IS_MANIFEST=$(cat amd64_cli_manifest.txt)
-                    ARM64_CLI_IS_MANIFEST=$(cat arm64_cli_manifest.txt)
+                    # Remove any existing manifests
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
                     
-                    # Only proceed if both images are not manifest lists
-                    if [ "$AMD64_CLI_IS_MANIFEST" = "false" ] && [ "$ARM64_CLI_IS_MANIFEST" = "false" ]; then
-                      echo "Creating CLI manifest with single-architecture images"
-                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
-                        --insecure
-                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
-                    else
-                      echo "Skipping CLI manifest creation as one or both images are already manifest lists"
-                      # Pull the images to make them available locally
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 || true
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 || true
-                      # Tag them directly
-                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli || true
-                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli || true
-                    fi
+                    # Pull both architecture images to ensure they're available
+                    echo "Pulling architecture-specific images..."
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 || echo "Failed to pull amd64 image"
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 || echo "Failed to pull arm64 image"
+                    
+                    # Create the manifest with both architectures
+                    echo "Creating CLI manifest with both architectures..."
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64
+                    
+                    # Explicitly annotate architectures
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 --os linux --arch amd64
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 --os linux --arch arm64
+                    
+                    # Push the manifest
+                    echo "Pushing CLI manifest..."
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
+                    
+                    # Verify the manifest includes both architectures
+                    echo "Verifying CLI manifest..."
+                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
                     '''
                 }
             }
@@ -553,29 +565,35 @@ pipeline {
                     echo $ARM64_DEV_IS_MANIFEST > arm64_dev_manifest.txt
                     '''
                     
-                    // Create Dev manifest
+                    // Create Dev manifest - simplified approach
                     sh '''
-                    # Read the check results
-                    AMD64_DEV_IS_MANIFEST=$(cat amd64_dev_manifest.txt)
-                    ARM64_DEV_IS_MANIFEST=$(cat arm64_dev_manifest.txt)
+                    # Remove any existing manifests
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
                     
-                    # Only proceed if both images are not manifest lists
-                    if [ "$AMD64_DEV_IS_MANIFEST" = "false" ] && [ "$ARM64_DEV_IS_MANIFEST" = "false" ]; then
-                      echo "Creating Dev manifest with single-architecture images"
-                      docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
-                        --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
-                        --insecure
-                      docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
-                    else
-                      echo "Skipping Dev manifest creation as one or both images are already manifest lists"
-                      # Pull the images to make them available locally
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 || true
-                      docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 || true
-                      # Tag them directly
-                      docker tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev || true
-                      docker push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev || true
-                    fi
+                    # Pull both architecture images to ensure they're available
+                    echo "Pulling architecture-specific images..."
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 || echo "Failed to pull amd64 image"
+                    docker pull ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 || echo "Failed to pull arm64 image"
+                    
+                    # Create the manifest with both architectures
+                    echo "Creating Dev manifest with both architectures..."
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64
+                    
+                    # Explicitly annotate architectures
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 --os linux --arch amd64
+                    docker manifest annotate ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 --os linux --arch arm64
+                    
+                    # Push the manifest
+                    echo "Pushing Dev manifest..."
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
+                    
+                    # Verify the manifest includes both architectures
+                    echo "Verifying Dev manifest..."
+                    docker manifest inspect ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
                     '''
                 }
             }
