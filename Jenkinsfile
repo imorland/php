@@ -1,11 +1,13 @@
 pipeline {
-    agent any
+    agent none // We'll specify agents at the stage level
     options {
         skipDefaultCheckout(false)
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 120, unit: 'MINUTES')
     }
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        WATCHTOWER_TOKEN       = credentials('watchtower-token')
         DOCKER_BUILDKIT        = '1'
         DOCKER_CLI_EXPERIMENTAL = 'enabled'
         DOCKER_NAMESPACE       = 'ianmgg'
@@ -13,116 +15,246 @@ pipeline {
         TAG_VERSION            = '83'
     }
     stages {
-        stage('Setup') {
+        stage('Prepare Workspace') {
+            agent any
             steps {
-                script {
-                    // Login to Docker Hub once at the beginning
-                    sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
-                }
+                checkout scm
+                sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
+                stash includes: '**', name: 'source-code'
             }
         }
-        stage('Build Images in Parallel') {
+        
+        // Build all images in parallel, maximizing executor usage
+        stage('Build All Images') {
             parallel {
-                stage('Build Apache Image') {
+                stage('Build Apache AMD64') {
                     agent any
                     steps {
+                        unstash 'source-code'
                         script {
-                            // Set up QEMU and Buildx on this agent
                             sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
                             sh '''
-                            docker buildx create --name PHPbuilder-apache --use || true
-                            docker buildx inspect PHPbuilder-apache --bootstrap
+                            docker buildx create --name PHPbuilder-apache-amd64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-apache-amd64-${BUILD_NUMBER} --bootstrap
                             '''
                             
-                            // Build and push the Apache image
                             sh """
                             docker buildx build . \
                               --progress=plain \
-                              --platform linux/amd64,linux/arm64 \
+                              --platform linux/amd64 \
                               --file 8/${PHP_VERSION}/Dockerfile.apache \
-                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
                               --push
                             """
                         }
                     }
                     post {
                         always {
-                            sh 'docker buildx rm PHPbuilder-apache || true'
+                            sh 'docker buildx rm PHPbuilder-apache-amd64-${BUILD_NUMBER} || true'
+                            cleanWs()
                         }
                     }
                 }
                 
-                stage('Build CLI Image') {
+                stage('Build Apache ARM64') {
                     agent any
                     steps {
+                        unstash 'source-code'
                         script {
-                            // Set up QEMU and Buildx on this agent
                             sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
                             sh '''
-                            docker buildx create --name PHPbuilder-cli --use || true
-                            docker buildx inspect PHPbuilder-cli --bootstrap
+                            docker buildx create --name PHPbuilder-apache-arm64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-apache-arm64-${BUILD_NUMBER} --bootstrap
                             '''
                             
-                            // Build and push the CLI image
                             sh """
                             docker buildx build . \
                               --progress=plain \
-                              --platform linux/amd64,linux/arm64 \
-                              --file 8/${PHP_VERSION}/Dockerfile.cli \
-                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                              --platform linux/arm64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.apache \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
                               --push
                             """
                         }
                     }
                     post {
                         always {
-                            sh 'docker buildx rm PHPbuilder-cli || true'
+                            sh 'docker buildx rm PHPbuilder-apache-arm64-${BUILD_NUMBER} || true'
+                            cleanWs()
+                        }
+                    }
+                }
+                
+                stage('Build CLI AMD64') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        script {
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-cli-amd64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-cli-amd64-${BUILD_NUMBER} --bootstrap
+                            '''
+                            
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/amd64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.cli \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-cli-amd64-${BUILD_NUMBER} || true'
+                            cleanWs()
+                        }
+                    }
+                }
+                
+                stage('Build CLI ARM64') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        script {
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-cli-arm64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-cli-arm64-${BUILD_NUMBER} --bootstrap
+                            '''
+                            
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/arm64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.cli \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-cli-arm64-${BUILD_NUMBER} || true'
+                            cleanWs()
                         }
                     }
                 }
             }
         }
         
-        // Dev image depends on Apache image, so it runs after the parallel stage
-        stage('Build Dev Image') {
+        // Create manifests to combine architecture-specific images
+        stage('Create Base Manifests') {
+            agent any
             steps {
+                unstash 'source-code'
                 script {
-                    // Set up QEMU and Buildx
-                    sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
-                    sh '''
-                    docker buildx create --name PHPbuilder-dev --use || true
-                    docker buildx inspect PHPbuilder-dev --bootstrap
-                    '''
-                    
-                    // Build and push the Dev image
+                    // Create manifest for Apache image
                     sh """
-                    docker buildx build . \
-                      --progress=plain \
-                      --platform linux/amd64,linux/arm64 \
-                      --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
-                      --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
-                      --push
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64
+                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
+                    """
+                    
+                    // Create manifest for CLI image
+                    sh """
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64
+                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
                     """
                 }
             }
             post {
                 always {
-                    sh 'docker buildx rm PHPbuilder-dev || true'
+                    cleanWs()
                 }
             }
         }
         
-        stage('Schedule Watchtower Update') {
+        // Dev image builds after manifests are created
+        stage('Build Dev Images') {
+            parallel {
+                stage('Build Dev AMD64') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        script {
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-dev-amd64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-dev-amd64-${BUILD_NUMBER} --bootstrap
+                            '''
+                            
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/amd64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-dev-amd64-${BUILD_NUMBER} || true'
+                            cleanWs()
+                        }
+                    }
+                }
+                
+                stage('Build Dev ARM64') {
+                    agent any
+                    steps {
+                        unstash 'source-code'
+                        script {
+                            sh 'docker run --rm --privileged multiarch/qemu-user-static --reset -p yes'
+                            sh '''
+                            docker buildx create --name PHPbuilder-dev-arm64-${BUILD_NUMBER} --use || true
+                            docker buildx inspect PHPbuilder-dev-arm64-${BUILD_NUMBER} --bootstrap
+                            '''
+                            
+                            sh """
+                            docker buildx build . \
+                              --progress=plain \
+                              --platform linux/arm64 \
+                              --file 8/${PHP_VERSION}/Dockerfile.apache.dev \
+                              --tag ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
+                              --push
+                            """
+                        }
+                    }
+                    post {
+                        always {
+                            sh 'docker buildx rm PHPbuilder-dev-arm64-${BUILD_NUMBER} || true'
+                            cleanWs()
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Create manifest for Dev image
+        stage('Create Dev Manifest') {
+            agent any
             steps {
+                unstash 'source-code'
                 script {
-                    sh '''
-                    docker run -d --rm \
-                      busybox:1.35 \
-                      sh -c "sleep 60 && \
-                        wget -qO- \\
-                          --header 'Authorization: Bearer $WATCHTOWER_TOKEN' \\
-                          http://host.docker.internal:8081/v1/update"
-                    '''
+                    sh """
+                    docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64
+                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
+                    """
+                }
+            }
+            post {
+                always {
+                    cleanWs()
                 }
             }
         }
@@ -133,6 +265,12 @@ pipeline {
         }
         failure {
             echo "Failed to build PHP ${PHP_VERSION} Docker images"
+        }
+        always {
+            node(null) {
+                // Final cleanup
+                sh 'docker buildx prune -f || true'
+            }
         }
     }
 }
