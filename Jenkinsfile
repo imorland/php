@@ -8,6 +8,7 @@ pipeline {
     }
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        DISCORD_WEBHOOK = credentials('discord-webhook-url')
         DOCKER_BUILDKIT        = '1'
         DOCKER_CLI_EXPERIMENTAL = 'enabled'
         DOCKER_NAMESPACE       = 'ianmgg'
@@ -18,6 +19,14 @@ pipeline {
         stage('Prepare Workspace') {
             agent any
             steps {
+                // Send build started notification
+                discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                           title: "Build Started: PHP ${PHP_VERSION} Docker Images", 
+                           description: "Building PHP ${PHP_VERSION} Docker images (Apache, CLI, Dev) for amd64 and arm64 platforms",
+                           link: env.BUILD_URL,
+                           result: "INFO",
+                           footer: "Build #${BUILD_NUMBER}"
+                
                 checkout scm
                 sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                 sh 'docker version'
@@ -55,6 +64,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Apache AMD64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Apache AMD64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-apache-amd64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -86,6 +109,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Apache ARM64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Apache ARM64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-apache-arm64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -117,6 +154,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "CLI AMD64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "CLI AMD64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-cli-amd64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -148,6 +199,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "CLI ARM64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "CLI ARM64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-cli-arm64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -181,6 +246,20 @@ pipeline {
                 }
             }
             post {
+                success {
+                    discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                               title: "Base Manifests Created", 
+                               description: "Successfully created and pushed manifests for Apache and CLI images",
+                               link: env.BUILD_URL,
+                               result: "SUCCESS"
+                }
+                failure {
+                    discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                               title: "Base Manifests Failed", 
+                               description: "Failed to create manifests for Apache and CLI images",
+                               link: env.BUILD_URL,
+                               result: "FAILURE"
+                }
                 always {
                     cleanWs()
                 }
@@ -214,6 +293,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Dev AMD64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Dev AMD64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-dev-amd64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -245,6 +338,20 @@ pipeline {
                         }
                     }
                     post {
+                        success {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Dev ARM64 Build Successful", 
+                                       description: "Successfully built and pushed ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "SUCCESS"
+                        }
+                        failure {
+                            discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                                       title: "Dev ARM64 Build Failed", 
+                                       description: "Failed to build ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64",
+                                       link: env.BUILD_URL,
+                                       result: "FAILURE"
+                        }
                         always {
                             sh 'docker buildx rm PHPbuilder-dev-arm64-${BUILD_NUMBER} || true'
                             cleanWs()
@@ -269,6 +376,20 @@ pipeline {
                 }
             }
             post {
+                success {
+                    discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                               title: "Dev Manifest Created", 
+                               description: "Successfully created and pushed manifest for Dev image",
+                               link: env.BUILD_URL,
+                               result: "SUCCESS"
+                }
+                failure {
+                    discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                               title: "Dev Manifest Failed", 
+                               description: "Failed to create manifest for Dev image",
+                               link: env.BUILD_URL,
+                               result: "FAILURE"
+                }
                 always {
                     cleanWs()
                 }
@@ -277,10 +398,27 @@ pipeline {
     }
     post {
         success {
-            echo "Successfully built and pushed PHP ${PHP_VERSION} Docker images"
+            node(null) {
+                discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                           title: "Build Successful: PHP ${PHP_VERSION} Docker Images", 
+                           description: "Successfully built and pushed all PHP ${PHP_VERSION} Docker images:\n" +
+                                       "- ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest (amd64, arm64)\n" +
+                                       "- ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli (amd64, arm64)\n" +
+                                       "- ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev (amd64, arm64)",
+                           link: env.BUILD_URL,
+                           result: "SUCCESS",
+                           footer: "Build #${BUILD_NUMBER} completed in ${currentBuild.durationString}"
+            }
         }
         failure {
-            echo "Failed to build PHP ${PHP_VERSION} Docker images"
+            node(null) {
+                discordSend webhookURL: "${DISCORD_WEBHOOK}", 
+                           title: "Build Failed: PHP ${PHP_VERSION} Docker Images", 
+                           description: "Failed to build PHP ${PHP_VERSION} Docker images. Check the build logs for details.",
+                           link: env.BUILD_URL,
+                           result: "FAILURE",
+                           footer: "Build #${BUILD_NUMBER} failed after ${currentBuild.durationString}"
+            }
         }
         always {
             node(null) {
