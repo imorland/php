@@ -278,20 +278,28 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
-                    // Create manifest for Apache image
+                    // Remove existing manifests if they exist
+                    sh '''
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest 2>/dev/null || true
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli 2>/dev/null || true
+                    '''
+                    
+                    // Create manifest for Apache image with --insecure flag
                     sh """
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest \
                       --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64
-                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest-arm64 \
+                      --insecure
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:latest
                     """
                     
-                    // Create manifest for CLI image
+                    // Create manifest for CLI image with --insecure flag
                     sh """
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli \
                       --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64
-                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli-arm64 \
+                      --insecure
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:cli
                     """
                 }
             }
@@ -446,11 +454,17 @@ pipeline {
                     // Login to Docker Hub on this agent
                     sh 'echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin'
                     
+                    // Remove existing manifest if it exists
+                    sh '''
+                    docker manifest rm ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev 2>/dev/null || true
+                    '''
+                    
                     sh """
                     docker manifest create ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev \
                       --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-amd64 \
-                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64
-                    docker manifest push ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
+                      --amend ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev-arm64 \
+                      --insecure
+                    docker manifest push --purge ${DOCKER_NAMESPACE}/php${TAG_VERSION}:dev
                     """
                 }
             }
