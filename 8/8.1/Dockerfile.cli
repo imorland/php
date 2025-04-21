@@ -45,9 +45,18 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# PHP extensions
+# PHP extensions, seperated for QEMU build purposes
 RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
-RUN docker-php-ext-install gd calendar intl pdo_mysql xml zip opcache exif pcntl sockets
+RUN docker-php-ext-install gd
+RUN docker-php-ext-install calendar
+RUN docker-php-ext-install intl
+RUN docker-php-ext-install pdo_mysql
+RUN docker-php-ext-install xml
+RUN docker-php-ext-install zip
+RUN docker-php-ext-install opcache
+RUN docker-php-ext-install exif
+RUN docker-php-ext-install pcntl
+RUN docker-php-ext-install sockets
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # PHP settings
