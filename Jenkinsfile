@@ -44,7 +44,8 @@ pipeline {
                         [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
-                        [version: '8.4', tag: '84']
+                        [version: '8.4', tag: '84'],
+                        [version: '8.5', tag: '85']
                     ]
                     
                     // Create a map to hold all parallel stages
@@ -454,7 +455,8 @@ pipeline {
                         [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
-                        [version: '8.4', tag: '84']
+                        [version: '8.4', tag: '84'],
+                        [version: '8.5', tag: '85']
                     ]
                     def versionsList = phpVersions.collect { "PHP ${it.version}" }.join(", ")
                     def imagesList = phpVersions.collect { phpConfig ->
@@ -481,7 +483,8 @@ pipeline {
                         [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
-                        [version: '8.4', tag: '84']
+                        [version: '8.4', tag: '84'],
+                        [version: '8.5', tag: '85']
                     ]
                     def versionsList = phpVersions.collect { "PHP ${it.version}" }.join(", ")
                     

@@ -6,7 +6,7 @@ ENV PROVISION_CONTEXT="development"
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install and enable xdebug, configure log file
-RUN pecl install xdebug \
+RUN pecl install xdebug-3.4.7 \
     && docker-php-ext-enable xdebug \
     && touch /var/log/xdebug.log \
     && chmod 777 /var/log/xdebug.log
