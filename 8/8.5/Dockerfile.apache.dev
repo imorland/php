@@ -1,5 +1,5 @@
-# Use the custom PHP 8.4 image as the base image
-FROM ianmgg/php84:latest
+# Use the custom PHP 8.5 image as the base image
+FROM ianmgg/php85:latest
 
 ### DEV ENVIRONMENT SPECIFIC ###
 ################################
@@ -7,11 +7,11 @@ ENV PROVISION_CONTEXT="development"
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install xdebug, enable it, and configure the log
-RUN pecl install xdebug-3.4.7 && \
+RUN pecl install xdebug-3.5.0alpha3 && \
     docker-php-ext-enable xdebug && \
     touch /var/log/xdebug.log && \
     chmod 777 /var/log/xdebug.log
 
 # Configure PHP
-COPY 8/8.4/etc/php/development.ini /usr/local/etc/php/conf.d/
+COPY 8/8.5/etc/php/development.ini /usr/local/etc/php/conf.d/
 RUN rm -rf /usr/local/etc/php/conf.d/production.ini
