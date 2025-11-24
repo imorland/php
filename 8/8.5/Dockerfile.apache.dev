@@ -6,8 +6,17 @@ FROM ianmgg/php85:latest
 ENV PROVISION_CONTEXT="development"
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install xdebug, enable it, and configure the log
-RUN pecl install xdebug-3.5.0alpha3 && \
+# Install xdebug from source (alpha version needed for PHP 8.5), enable it, and configure the log
+RUN cd /tmp && \
+    curl -L https://xdebug.org/files/xdebug-3.5.0alpha3.tgz -o xdebug.tgz && \
+    tar -xzf xdebug.tgz && \
+    cd xdebug-3.5.0alpha3 && \
+    phpize && \
+    ./configure && \
+    make && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/xdebug* && \
     docker-php-ext-enable xdebug && \
     touch /var/log/xdebug.log && \
     chmod 777 /var/log/xdebug.log
