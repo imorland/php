@@ -40,7 +40,8 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     default-mysql-client \
     util-linux \
     gosu \
-    jq && \
+    jq \
+    redis-tools && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -56,6 +57,9 @@ RUN docker-php-ext-install exif
 RUN docker-php-ext-install pcntl
 RUN docker-php-ext-install sockets
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
+
+# Install redis extension
+RUN pecl install redis && docker-php-ext-enable redis
 
 # Apache settings
 COPY 8/8.3/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
