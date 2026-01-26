@@ -41,7 +41,6 @@ pipeline {
                 script {
                     // Define PHP versions directly in the script instead of using readJSON
                     def phpVersions = [
-                        [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
                         [version: '8.4', tag: '84'],
@@ -452,7 +451,6 @@ pipeline {
                 script {
                     // Define PHP versions directly in the script instead of using readJSON
                     def phpVersions = [
-                        [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
                         [version: '8.4', tag: '84'],
@@ -480,7 +478,6 @@ pipeline {
                 script {
                     // Define PHP versions directly in the script instead of using readJSON
                     def phpVersions = [
-                        [version: '8.1', tag: '81'],
                         [version: '8.2', tag: '82'],
                         [version: '8.3', tag: '83'],
                         [version: '8.4', tag: '84'],
