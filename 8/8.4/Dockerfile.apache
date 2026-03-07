@@ -41,7 +41,10 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     util-linux \
     gosu \
     jq \
-    redis-tools && \
+    redis-tools \
+    vim \
+    liblz4-dev \
+    libzstd-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -58,8 +61,9 @@ RUN docker-php-ext-install pcntl
 RUN docker-php-ext-install sockets
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
-# Install redis extension
-RUN pecl install redis && docker-php-ext-enable redis
+# Install redis extension with LZ4 and Zstd compression support
+RUN pecl install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
+    && docker-php-ext-enable redis
 
 # Apache settings
 COPY 8/8.4/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
