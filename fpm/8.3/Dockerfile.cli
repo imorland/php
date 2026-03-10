@@ -1,0 +1,72 @@
+FROM php:8.3-cli
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Setup Debian packages
+RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
+    procps \
+    cron \
+    unzip \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libzip-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libssl-dev \
+    zlib1g-dev \
+    libpng-dev \
+    libwebp-dev \
+    libjpeg-dev \
+    libonig-dev \
+    libicu-dev \
+    apt-file \
+    wget \
+    gnupg \
+    gnupg2 \
+    zip \
+    git \
+    curl \
+    gcc \
+    g++ \
+    autoconf \
+    libc-dev \
+    pkg-config \
+    iputils-ping \
+    netcat-openbsd \
+    default-mysql-client \
+    util-linux \
+    gosu \
+    jq \
+    redis-tools \
+    vim \
+    liblz4-dev \
+    libzstd-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# PHP extensions, separated for QEMU build purposes
+RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
+RUN docker-php-ext-install gd
+RUN docker-php-ext-install calendar
+RUN docker-php-ext-install intl
+RUN docker-php-ext-install pdo_mysql
+RUN docker-php-ext-install xml
+RUN docker-php-ext-install zip
+RUN docker-php-ext-install exif
+RUN docker-php-ext-install pcntl
+RUN docker-php-ext-install sockets
+RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
+
+# Install redis extension with LZ4 and Zstd compression support
+RUN pecl install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
+    && docker-php-ext-enable redis
+
+# PHP settings - Flarum tuned OPcache
+COPY fpm/8.3/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
+
+# Composer
+COPY fpm/8.3/etc/ssh/* /usr/local/ssh/
+RUN sh /usr/local/ssh/install-composer.sh && \
+    mv composer.phar /usr/local/bin/composer
+
+ENV PROVISION_CONTEXT="cli"

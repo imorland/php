@@ -1,0 +1,16 @@
+# Use the FPM PHP 8.3 image as the base image
+FROM ianmgg/php83fpm:latest
+
+### DEV ENVIRONMENT SPECIFIC ###
+################################
+ENV PROVISION_CONTEXT="development"
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install xdebug, enable it, and configure the log
+RUN pecl install xdebug-3.4.7 && \
+    docker-php-ext-enable xdebug && \
+    touch /var/log/xdebug.log && \
+    chmod 777 /var/log/xdebug.log
+
+# Configure PHP - swap flarum.ini for dev variant (OPcache disabled, errors on)
+COPY fpm/8.3/etc/php/flarum-dev.ini /usr/local/etc/php/conf.d/flarum.ini
