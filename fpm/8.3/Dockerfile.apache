@@ -73,11 +73,8 @@ COPY fpm/8.3/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabl
 # PHP settings - Flarum tuned OPcache
 COPY fpm/8.3/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
 
-# Composer
-COPY fpm/8.3/etc/ssh/* /usr/local/ssh/
-RUN mkdir -p /usr/local/ssh && \
-    sh /usr/local/ssh/install-composer.sh && \
-    mv composer.phar /usr/local/bin/composer
+# Composer - copy binary from official image to avoid QEMU issues with the installer script
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 
 # Apache modules: disable prefork, enable event + proxy_fcgi
 RUN a2dismod mpm_prefork && \
