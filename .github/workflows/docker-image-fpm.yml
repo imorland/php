@@ -4,19 +4,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Build FPM apache and cli images in parallel (8.3 only)
-  build_fpm_apache_and_cli:
-    runs-on: ubuntu-latest
+  # Build apache and cli images on native runners for each arch
+  build_apache:
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        config:
-          - {dockerfile_suffix: 'apache', tag_suffix: 'latest'}
-          - {dockerfile_suffix: 'cli', tag_suffix: 'cli'}
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: linux/amd64,linux/arm64
+    - uses: actions/checkout@v4
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Login to Docker Hub
@@ -24,30 +23,26 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - uses: actions/checkout@v4
-    - name: Build and Push FPM Docker image
+    - name: Build and Push
       run: |
         docker buildx build . \
           --progress=plain \
-          --platform linux/amd64,linux/arm64 \
-          --file fpm/8.3/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
-          --tag ianmgg/php83fpm:${{ matrix.config.tag_suffix }} \
+          --platform linux/${{ matrix.arch }} \
+          --file fpm/8.3/Dockerfile.apache \
+          --tag ianmgg/php83fpm:latest-${{ matrix.arch }} \
           --push
 
-  # Build FPM dev images which depend on the base FPM images
-  build_fpm_dev:
-    needs: build_fpm_apache_and_cli
-    runs-on: ubuntu-latest
+  build_cli:
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        config:
-          - {dockerfile_suffix: 'apache.dev', tag_suffix: 'dev'}
-          - {dockerfile_suffix: 'cli.dev', tag_suffix: 'cli-dev'}
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: linux/amd64,linux/arm64
+    - uses: actions/checkout@v4
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Login to Docker Hub
@@ -55,12 +50,100 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - uses: actions/checkout@v4
-    - name: Build and Push FPM dev Docker image
+    - name: Build and Push
       run: |
         docker buildx build . \
           --progress=plain \
-          --platform linux/amd64,linux/arm64 \
-          --file fpm/8.3/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
-          --tag ianmgg/php83fpm:${{ matrix.config.tag_suffix }} \
+          --platform linux/${{ matrix.arch }} \
+          --file fpm/8.3/Dockerfile.cli \
+          --tag ianmgg/php83fpm:cli-${{ matrix.arch }} \
           --push
+
+  # Merge arch-specific tags into multi-arch manifests
+  merge_base_manifests:
+    needs: [build_apache, build_cli]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Create manifests
+      run: |
+        docker buildx imagetools create \
+          --tag ianmgg/php83fpm:latest \
+          ianmgg/php83fpm:latest-amd64 \
+          ianmgg/php83fpm:latest-arm64
+
+        docker buildx imagetools create \
+          --tag ianmgg/php83fpm:cli \
+          ianmgg/php83fpm:cli-amd64 \
+          ianmgg/php83fpm:cli-arm64
+
+  # Build dev images on native runners (base images must be on Docker Hub first)
+  build_dev:
+    needs: merge_base_manifests
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            dockerfile: apache.dev
+            tag: dev
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            dockerfile: apache.dev
+            tag: dev
+          - arch: amd64
+            runner: ubuntu-latest
+            dockerfile: cli.dev
+            tag: cli-dev
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            dockerfile: cli.dev
+            tag: cli-dev
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Build and Push
+      run: |
+        docker buildx build . \
+          --progress=plain \
+          --platform linux/${{ matrix.arch }} \
+          --file fpm/8.3/Dockerfile.${{ matrix.dockerfile }} \
+          --tag ianmgg/php83fpm:${{ matrix.tag }}-${{ matrix.arch }} \
+          --push
+
+  # Merge dev arch tags into multi-arch manifests
+  merge_dev_manifests:
+    needs: build_dev
+    runs-on: ubuntu-latest
+    steps:
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Create manifests
+      run: |
+        docker buildx imagetools create \
+          --tag ianmgg/php83fpm:dev \
+          ianmgg/php83fpm:dev-amd64 \
+          ianmgg/php83fpm:dev-arm64
+
+        docker buildx imagetools create \
+          --tag ianmgg/php83fpm:cli-dev \
+          ianmgg/php83fpm:cli-dev-amd64 \
+          ianmgg/php83fpm:cli-dev-arm64
