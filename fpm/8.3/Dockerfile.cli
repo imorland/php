@@ -39,14 +39,19 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     jq \
     redis-tools \
     vim \
+    python3 \
     liblz4-dev \
     libzstd-dev \
-    libpq-dev && \
+    libpq-dev \
+    libmagickwand-dev \
+    imagemagick \
+    ghostscript \
+    libavif-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # PHP extensions, separated for QEMU build purposes
-RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg
+RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg --with-avif
 RUN docker-php-ext-install gd
 RUN docker-php-ext-install calendar
 RUN docker-php-ext-install intl
@@ -63,10 +68,17 @@ RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/co
 RUN pecl install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
     && docker-php-ext-enable redis
 
+# Install imagick extension
+RUN pecl install imagick && docker-php-ext-enable imagick
+
 # PHP settings - Flarum tuned OPcache
 COPY fpm/8.3/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
 
 # Composer - copy binary from official image to avoid QEMU issues with the installer script
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
+
+# AWS CLI - copy from official multi-arch image
+COPY --from=amazon/aws-cli:latest /usr/local/aws-cli /usr/local/aws-cli
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
 
 ENV PROVISION_CONTEXT="cli"
