@@ -1,0 +1,8 @@
+#!/bin/sh
+# Applies the JIT flag, then hands over to the base image entrypoint so the
+# image is still driven by whatever command it was given.
+set -e
+
+php-jit-flag
+
+exec docker-php-entrypoint "$@"

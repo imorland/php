@@ -79,6 +79,9 @@ COPY fpm/8.3/etc/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY fpm/8.3/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
 COPY fpm/8.3/etc/apache2/apache2.conf /etc/apache2/apache2.conf
 COPY fpm/8.3/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+# mpm_event sized to the FPM pool in etc/php-fpm/www.conf. a2enmod symlinks
+# this into mods-enabled, so it replaces Debian's defaults.
+COPY fpm/8.3/etc/apache2/mods-available/mpm_event.conf /etc/apache2/mods-available/mpm_event.conf
 
 # PHP settings - Flarum tuned OPcache
 COPY fpm/8.3/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
@@ -103,12 +106,24 @@ RUN a2dismod mpm_prefork && \
 # Apache configuration test
 RUN apachectl configtest
 
-# Startup script: launch PHP-FPM as daemon, then Apache in foreground
-RUN printf '#!/bin/sh\nset -e\nphp-fpm -D\nexec apache2-foreground\n' > /usr/local/bin/startup && \
-    chmod +x /usr/local/bin/startup
+# Startup, entrypoint and the PHP_OPCACHE_JIT resolver.
+#
+# startup launches PHP-FPM as a daemon then Apache in the foreground. Apache is
+# installed from apt (not the php:*-apache image), so it provides apache2ctl
+# rather than the apache2-foreground helper script.
+#
+# php-jit-flag runs from the ENTRYPOINT rather than only from startup, because
+# consuming images routinely replace /usr/local/bin/startup with their own
+# script. Hooking the entrypoint keeps PHP_OPCACHE_JIT working for them too.
+COPY fpm/8.3/bin/php-jit-flag /usr/local/bin/php-jit-flag
+COPY fpm/8.3/bin/startup /usr/local/bin/startup
+COPY fpm/8.3/bin/entrypoint /usr/local/bin/entrypoint
+RUN chmod +x /usr/local/bin/php-jit-flag /usr/local/bin/startup /usr/local/bin/entrypoint
 
 EXPOSE 8080
 
 ENV PROVISION_CONTEXT="production"
+
+ENTRYPOINT ["entrypoint"]
 
 CMD ["startup"]

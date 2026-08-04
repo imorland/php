@@ -1,4 +1,4 @@
-FROM php:8.3-cli
+FROM php:8.5-cli
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -72,7 +72,7 @@ RUN pecl install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" en
 RUN pecl install imagick && docker-php-ext-enable imagick
 
 # PHP settings - Flarum tuned OPcache
-COPY fpm/8.3/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
+COPY fpm/8.5/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
 
 # Composer - copy binary from official image to avoid QEMU issues with the installer script
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
@@ -83,8 +83,8 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
 
 # Resolve PHP_OPCACHE_JIT before handing over to the base image entrypoint,
 # which still passes the container's command through unchanged.
-COPY fpm/8.3/bin/php-jit-flag /usr/local/bin/php-jit-flag
-COPY fpm/8.3/bin/entrypoint /usr/local/bin/entrypoint
+COPY fpm/8.5/bin/php-jit-flag /usr/local/bin/php-jit-flag
+COPY fpm/8.5/bin/entrypoint /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/php-jit-flag /usr/local/bin/entrypoint
 
 ENTRYPOINT ["entrypoint"]
