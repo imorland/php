@@ -79,6 +79,7 @@ COPY fpm/8.5/etc/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY fpm/8.5/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
 COPY fpm/8.5/etc/apache2/apache2.conf /etc/apache2/apache2.conf
 COPY fpm/8.5/etc/apache2/sites-enabled/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+COPY fpm/8.5/etc/apache2/mods-available/mpm_event.conf /etc/apache2/mods-available/mpm_event.conf
 
 # PHP settings - Flarum tuned OPcache
 COPY fpm/8.5/etc/php/flarum.ini /usr/local/etc/php/conf.d/flarum.ini
@@ -103,11 +104,10 @@ RUN a2dismod mpm_prefork && \
 # Apache configuration test
 RUN apachectl configtest
 
-# Startup script: launch PHP-FPM as daemon, then Apache in foreground.
-# apache2-foreground ships only with php:*-apache; on an FPM base Apache comes
-# from Debian, so drive it with apache2ctl and source envvars for APACHE_RUN_*.
-RUN printf '#!/bin/sh\nset -e\nphp-fpm -D\n. /etc/apache2/envvars\nexec apache2ctl -D FOREGROUND\n' > /usr/local/bin/startup && \
-    chmod +x /usr/local/bin/startup
+# Startup script: apply the JIT flag, launch PHP-FPM as daemon, then Apache in foreground
+COPY fpm/8.5/bin/php-jit-flag /usr/local/bin/php-jit-flag
+COPY fpm/8.5/bin/startup /usr/local/bin/startup
+RUN chmod +x /usr/local/bin/php-jit-flag /usr/local/bin/startup
 
 EXPOSE 8080
 

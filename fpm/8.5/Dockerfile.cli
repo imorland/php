@@ -81,4 +81,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY --from=amazon/aws-cli:latest /usr/local/aws-cli /usr/local/aws-cli
 RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
 
+# Apply the JIT flag before handing over to the base image entrypoint
+COPY fpm/8.5/bin/php-jit-flag /usr/local/bin/php-jit-flag
+COPY fpm/8.5/bin/entrypoint /usr/local/bin/entrypoint
+RUN chmod +x /usr/local/bin/php-jit-flag /usr/local/bin/entrypoint
+
+ENTRYPOINT ["entrypoint"]
+
 ENV PROVISION_CONTEXT="cli"

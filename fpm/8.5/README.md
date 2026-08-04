@@ -5,7 +5,7 @@ Apache runs in **mpm_event** mode and proxies to PHP-FPM over a Unix socket for 
 
 OPcache is tuned for [Flarum](https://flarum.org/) — large composer autoloader, many files, JIT enabled.
 
-> The `8/8.5` images in this repository are mod_php (`php:8.5-apache`, mpm_prefork). These FPM images are a separate lineage — see the architecture diagram below.
+The measurements and reasoning behind the OPcache, JIT, pool and `mpm_event` values are in [PERFORMANCE.md](PERFORMANCE.md).
 
 ---
 
@@ -62,7 +62,7 @@ docker buildx build --platform linux/arm64 -f fpm/8.5/Dockerfile.apache -t ianmg
 └─────────────────────────────┘
 ```
 
-Both processes start via `/usr/local/bin/startup` (`php-fpm -D` then `apache2-foreground`).
+Both processes start via `/usr/local/bin/startup` (`php-fpm -D`, then `apache2ctl -D FOREGROUND` after sourcing `/etc/apache2/envvars`).
 
 ---
 
@@ -74,12 +74,42 @@ Both processes start via `/usr/local/bin/startup` (`php-fpm -D` then `apache2-fo
 | `max_accelerated_files` | 20000 | Covers Flarum core + composer dependencies |
 | `interned_strings_buffer` | 32MB | Reduces string duplication across cached files |
 | `validate_timestamps` | 0 | No file stat on each request — restart FPM after deploys |
-| `jit` | 1255 | Tracing JIT, best for repeated request patterns |
-| `jit_buffer_size` | 128MB | |
+| `jit` | tracing | Documented alias (= 1254). Flarum is I/O bound, so set `off` when profiling |
+| `jit_buffer_size` | 64MB | Shared memory allocated on top of `memory_consumption`, not out of it |
 | `enable_cli` | 1 | Benefits Horizon workers and websocket servers |
 
 ---
 
-### Notes on 8.5
+### JIT feature flag
 
-- Xdebug is installed from PECL (`xdebug-3.5.3`), the first stable series with PHP 8.5 support. The `8/8.5` mod_php images still build `3.5.0alpha3` from source; that workaround is no longer needed.
+JIT is on by default (`tracing`, 64MB buffer) and can be switched per container. `opcache.jit_buffer_size` is `INI_SYSTEM`, so the flag is resolved at startup — by `startup` on the web images and by the entrypoint on the CLI images — into `conf.d/zz-jit.ini`, which loads after `flarum.ini`.
+
+| Variable | Values | Effect |
+|----------|--------|--------|
+| `PHP_OPCACHE_JIT` | `1`, `on`, `true`, `tracing` | Tracing JIT |
+| | `function` | Function JIT |
+| | `0`, `off`, `false`, `disable` | JIT off, buffer dropped to 0 — reclaims 64MB of reservation |
+| | unset | Keeps the `flarum.ini` default |
+| `PHP_OPCACHE_JIT_BUFFER_SIZE` | e.g. `32M` | Buffer size while JIT is on; ignored when off |
+
+```bash
+docker run -e PHP_OPCACHE_JIT=off ianmgg/php85fpm:latest
+```
+
+An unrecognised value logs a warning and leaves the default in place. The `dev` and `cli-dev` images disable OPcache entirely, so JIT is off there regardless of the flag.
+
+---
+
+### Sizing
+
+The FPM pool and `mpm_event` are sized together for **4 CPUs / 4GB**, with the database and Redis on other hosts, assuming ~80MB per Flarum worker.
+
+| Setting | Value | Reason |
+|---------|-------|--------|
+| `pm.max_children` | 24 | 4 CPUs only run 4 requests at once; the rest cover I/O wait. Use 16 (start 6, spare 4–10) when MySQL and Redis share the same 4GB |
+| `pm.start_servers` | 8 | Pre-warmed for the request fan-out of one client page load |
+| `MaxRequestWorkers` | 50 | ~2x the pool, so overload queues shallowly rather than piling up behind `Timeout` |
+
+A Flarum client issues several API requests per interaction and browsers open up to 6 connections per host, so concurrency per active user is well above 1. Measure `pm.status_path` under real traffic before changing `pm.max_children`; it is not routed through Apache, so reach it with a socket client or add a `ProxyPass` rule.
+
+The `dev` and `cli-dev` images inherit this pool.
