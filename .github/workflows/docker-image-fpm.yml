@@ -8,11 +8,24 @@ jobs:
   build_apache:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - arch: amd64
+          - php: '8.3'
+            image: php83fpm
+            arch: amd64
             runner: ubuntu-latest
-          - arch: arm64
+          - php: '8.3'
+            image: php83fpm
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - php: '8.5'
+            image: php85fpm
+            arch: amd64
+            runner: ubuntu-latest
+          - php: '8.5'
+            image: php85fpm
+            arch: arm64
             runner: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v4
@@ -28,18 +41,31 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.apache \
-          --tag ianmgg/php83fpm:latest-${{ matrix.arch }} \
+          --file fpm/${{ matrix.php }}/Dockerfile.apache \
+          --tag ianmgg/${{ matrix.image }}:latest-${{ matrix.arch }} \
           --push
 
   build_cli:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - arch: amd64
+          - php: '8.3'
+            image: php83fpm
+            arch: amd64
             runner: ubuntu-latest
-          - arch: arm64
+          - php: '8.3'
+            image: php83fpm
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - php: '8.5'
+            image: php85fpm
+            arch: amd64
+            runner: ubuntu-latest
+          - php: '8.5'
+            image: php85fpm
+            arch: arm64
             runner: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v4
@@ -55,14 +81,20 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.cli \
-          --tag ianmgg/php83fpm:cli-${{ matrix.arch }} \
+          --file fpm/${{ matrix.php }}/Dockerfile.cli \
+          --tag ianmgg/${{ matrix.image }}:cli-${{ matrix.arch }} \
           --push
 
   # Merge arch-specific tags into multi-arch manifests
   merge_base_manifests:
     needs: [build_apache, build_cli]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: php83fpm
+          - image: php85fpm
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -74,38 +106,38 @@ jobs:
     - name: Create manifests
       run: |
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:latest \
-          ianmgg/php83fpm:latest-amd64 \
-          ianmgg/php83fpm:latest-arm64
+          --tag ianmgg/${{ matrix.image }}:latest \
+          ianmgg/${{ matrix.image }}:latest-amd64 \
+          ianmgg/${{ matrix.image }}:latest-arm64
 
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:cli \
-          ianmgg/php83fpm:cli-amd64 \
-          ianmgg/php83fpm:cli-arm64
+          --tag ianmgg/${{ matrix.image }}:cli \
+          ianmgg/${{ matrix.image }}:cli-amd64 \
+          ianmgg/${{ matrix.image }}:cli-arm64
 
   # Build dev images on native runners (base images must be on Docker Hub first)
   build_dev:
     needs: merge_base_manifests
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
+        php: ['8.3', '8.5']
+        dockerfile: [apache.dev, cli.dev]
+        arch: [amd64, arm64]
         include:
+          - php: '8.3'
+            image: php83fpm
+          - php: '8.5'
+            image: php85fpm
+          - dockerfile: apache.dev
+            tag: dev
+          - dockerfile: cli.dev
+            tag: cli-dev
           - arch: amd64
             runner: ubuntu-latest
-            dockerfile: apache.dev
-            tag: dev
           - arch: arm64
             runner: ubuntu-24.04-arm
-            dockerfile: apache.dev
-            tag: dev
-          - arch: amd64
-            runner: ubuntu-latest
-            dockerfile: cli.dev
-            tag: cli-dev
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            dockerfile: cli.dev
-            tag: cli-dev
     steps:
     - uses: actions/checkout@v4
     - name: Set up Docker Buildx
@@ -120,14 +152,20 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.${{ matrix.dockerfile }} \
-          --tag ianmgg/php83fpm:${{ matrix.tag }}-${{ matrix.arch }} \
+          --file fpm/${{ matrix.php }}/Dockerfile.${{ matrix.dockerfile }} \
+          --tag ianmgg/${{ matrix.image }}:${{ matrix.tag }}-${{ matrix.arch }} \
           --push
 
   # Merge dev arch tags into multi-arch manifests
   merge_dev_manifests:
     needs: build_dev
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: php83fpm
+          - image: php85fpm
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -139,11 +177,11 @@ jobs:
     - name: Create manifests
       run: |
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:dev \
-          ianmgg/php83fpm:dev-amd64 \
-          ianmgg/php83fpm:dev-arm64
+          --tag ianmgg/${{ matrix.image }}:dev \
+          ianmgg/${{ matrix.image }}:dev-amd64 \
+          ianmgg/${{ matrix.image }}:dev-arm64
 
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:cli-dev \
-          ianmgg/php83fpm:cli-dev-amd64 \
-          ianmgg/php83fpm:cli-dev-arm64
+          --tag ianmgg/${{ matrix.image }}:cli-dev \
+          ianmgg/${{ matrix.image }}:cli-dev-amd64 \
+          ianmgg/${{ matrix.image }}:cli-dev-arm64
