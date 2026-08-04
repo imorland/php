@@ -1,6 +1,14 @@
 name: Docker Image CI
 
 on:
+  # Rebuild on merge to master, but only when the mod_php images themselves
+  # change — a docs-only or keepalive commit should not rebuild anything.
+  # Scoped to 8/** because this workflow only builds PHP 8.2-8.5.
+  push:
+    branches: [master]
+    paths:
+      - '8/**'
+      - '.github/workflows/docker-image.yml'
   schedule:
     # Runs every 2 weeks on Monday at 00:00 UTC
     - cron: "0 0 */14 * *"

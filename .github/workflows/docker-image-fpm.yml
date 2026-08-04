@@ -1,7 +1,21 @@
 name: Docker Image CI - FPM
 
 on:
+  # Rebuild on merge to master, but only when the FPM images themselves
+  # change — a docs-only or keepalive commit should not rebuild anything.
+  push:
+    branches: [master]
+    paths:
+      - 'fpm/**'
+      - '.github/workflows/docker-image-fpm.yml'
+  schedule:
+    # 02:00 UTC on the 1st and 15th of each month, to pull in upstream PHP
+    # and Debian security updates. Offset from docker-image.yml so the two
+    # workflows do not contend for runners.
+    - cron: "0 2 1,15 * *"
   workflow_dispatch:
+  repository_dispatch:
+    types: [build-docker-fpm]
 
 jobs:
   # Build apache and cli images on native runners for each arch
@@ -9,11 +23,17 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
+        version: ['8.3', '8.5']
+        arch: [amd64, arm64]
         include:
           - arch: amd64
             runner: ubuntu-latest
           - arch: arm64
             runner: ubuntu-24.04-arm
+          - version: '8.3'
+            image: php83fpm
+          - version: '8.5'
+            image: php85fpm
     steps:
     - uses: actions/checkout@v4
     - name: Set up Docker Buildx
@@ -28,19 +48,25 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.apache \
-          --tag ianmgg/php83fpm:latest-${{ matrix.arch }} \
+          --file fpm/${{ matrix.version }}/Dockerfile.apache \
+          --tag ianmgg/${{ matrix.image }}:latest-${{ matrix.arch }} \
           --push
 
   build_cli:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
+        version: ['8.3', '8.5']
+        arch: [amd64, arm64]
         include:
           - arch: amd64
             runner: ubuntu-latest
           - arch: arm64
             runner: ubuntu-24.04-arm
+          - version: '8.3'
+            image: php83fpm
+          - version: '8.5'
+            image: php85fpm
     steps:
     - uses: actions/checkout@v4
     - name: Set up Docker Buildx
@@ -55,14 +81,17 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.cli \
-          --tag ianmgg/php83fpm:cli-${{ matrix.arch }} \
+          --file fpm/${{ matrix.version }}/Dockerfile.cli \
+          --tag ianmgg/${{ matrix.image }}:cli-${{ matrix.arch }} \
           --push
 
   # Merge arch-specific tags into multi-arch manifests
   merge_base_manifests:
     needs: [build_apache, build_cli]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [php83fpm, php85fpm]
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -74,14 +103,14 @@ jobs:
     - name: Create manifests
       run: |
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:latest \
-          ianmgg/php83fpm:latest-amd64 \
-          ianmgg/php83fpm:latest-arm64
+          --tag ianmgg/${{ matrix.image }}:latest \
+          ianmgg/${{ matrix.image }}:latest-amd64 \
+          ianmgg/${{ matrix.image }}:latest-arm64
 
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:cli \
-          ianmgg/php83fpm:cli-amd64 \
-          ianmgg/php83fpm:cli-arm64
+          --tag ianmgg/${{ matrix.image }}:cli \
+          ianmgg/${{ matrix.image }}:cli-amd64 \
+          ianmgg/${{ matrix.image }}:cli-arm64
 
   # Build dev images on native runners (base images must be on Docker Hub first)
   build_dev:
@@ -89,22 +118,21 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
+        version: ['8.3', '8.5']
+        arch: [amd64, arm64]
+        variant: [apache, cli]
         include:
           - arch: amd64
             runner: ubuntu-latest
-            dockerfile: apache.dev
-            tag: dev
           - arch: arm64
             runner: ubuntu-24.04-arm
-            dockerfile: apache.dev
+          - version: '8.3'
+            image: php83fpm
+          - version: '8.5'
+            image: php85fpm
+          - variant: apache
             tag: dev
-          - arch: amd64
-            runner: ubuntu-latest
-            dockerfile: cli.dev
-            tag: cli-dev
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            dockerfile: cli.dev
+          - variant: cli
             tag: cli-dev
     steps:
     - uses: actions/checkout@v4
@@ -120,14 +148,17 @@ jobs:
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
-          --file fpm/8.3/Dockerfile.${{ matrix.dockerfile }} \
-          --tag ianmgg/php83fpm:${{ matrix.tag }}-${{ matrix.arch }} \
+          --file fpm/${{ matrix.version }}/Dockerfile.${{ matrix.variant }}.dev \
+          --tag ianmgg/${{ matrix.image }}:${{ matrix.tag }}-${{ matrix.arch }} \
           --push
 
   # Merge dev arch tags into multi-arch manifests
   merge_dev_manifests:
     needs: build_dev
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [php83fpm, php85fpm]
     steps:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -139,11 +170,11 @@ jobs:
     - name: Create manifests
       run: |
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:dev \
-          ianmgg/php83fpm:dev-amd64 \
-          ianmgg/php83fpm:dev-arm64
+          --tag ianmgg/${{ matrix.image }}:dev \
+          ianmgg/${{ matrix.image }}:dev-amd64 \
+          ianmgg/${{ matrix.image }}:dev-arm64
 
         docker buildx imagetools create \
-          --tag ianmgg/php83fpm:cli-dev \
-          ianmgg/php83fpm:cli-dev-amd64 \
-          ianmgg/php83fpm:cli-dev-arm64
+          --tag ianmgg/${{ matrix.image }}:cli-dev \
+          ianmgg/${{ matrix.image }}:cli-dev-amd64 \
+          ianmgg/${{ matrix.image }}:cli-dev-arm64

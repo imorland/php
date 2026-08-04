@@ -1,0 +1,38 @@
+#!/bin/sh
+# Resolves PHP_OPCACHE_JIT into conf.d/zz-jit.ini, which loads after flarum.ini
+# and overrides it. opcache.jit_buffer_size is INI_SYSTEM, so this has to run
+# before PHP starts rather than being switched at runtime.
+#
+#   PHP_OPCACHE_JIT              1|on|true|tracing|function|0|off|false|disable
+#   PHP_OPCACHE_JIT_BUFFER_SIZE  buffer size when JIT is on (default 64M)
+#
+# Unset leaves the flarum.ini default in place.
+set -e
+
+CONF=/usr/local/etc/php/conf.d/zz-jit.ini
+
+if [ -z "${PHP_OPCACHE_JIT}" ]; then
+	rm -f "$CONF" 2>/dev/null || true
+	exit 0
+fi
+
+case "$(printf '%s' "$PHP_OPCACHE_JIT" | tr '[:upper:]' '[:lower:]')" in
+	1 | on | true | tracing) mode=tracing ;;
+	function) mode=function ;;
+	0 | off | false) mode=off ;;
+	disable) mode=disable ;;
+	*)
+		echo "php-jit-flag: unknown PHP_OPCACHE_JIT='${PHP_OPCACHE_JIT}', keeping flarum.ini default" >&2
+		exit 0
+		;;
+esac
+
+# A zero buffer disables the JIT outright and reclaims the reservation
+case "$mode" in
+	off | disable) size=0 ;;
+	*) size="${PHP_OPCACHE_JIT_BUFFER_SIZE:-64M}" ;;
+esac
+
+if ! (printf 'opcache.jit = %s\nopcache.jit_buffer_size = %s\n' "$mode" "$size" > "$CONF") 2>/dev/null; then
+	echo "php-jit-flag: cannot write ${CONF}, PHP_OPCACHE_JIT ignored" >&2
+fi

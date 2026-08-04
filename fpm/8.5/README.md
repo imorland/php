@@ -1,6 +1,6 @@
-## PHP 8.3 FPM Images
+## PHP 8.5 FPM Images
 
-PHP 8.3 images built on `php:8.3-fpm` (rolling, not pinned to a Debian release).
+PHP 8.5 images built on `php:8.5-fpm` (rolling, not pinned to a Debian release).
 Apache runs in **mpm_event** mode and proxies to PHP-FPM over a Unix socket for better concurrency than the traditional mod_php / mpm_prefork setup.
 
 OPcache is tuned for [Flarum](https://flarum.org/) — large composer autoloader, many files, JIT enabled.
@@ -13,36 +13,36 @@ The measurements and reasoning behind the OPcache, JIT, pool and `mpm_event` val
 
 | Image | Tag | Dockerfile | Description |
 |-------|-----|------------|-------------|
-| `ianmgg/php83fpm` | `latest` | `Dockerfile.apache` | Production web image. Apache mpm_event + PHP-FPM. OPcache on, JIT enabled. |
-| `ianmgg/php83fpm` | `dev` | `Dockerfile.apache.dev` | Development web image. Extends `latest`. Adds Xdebug, OPcache disabled. |
-| `ianmgg/php83fpm` | `cli` | `Dockerfile.cli` | CLI image for queue workers and websocket servers (Horizon, Reverb). OPcache enabled for long-running processes. |
-| `ianmgg/php83fpm` | `cli-dev` | `Dockerfile.cli.dev` | Development CLI image. Extends `cli`. Adds Xdebug, OPcache disabled. |
+| `ianmgg/php85fpm` | `latest` | `Dockerfile.apache` | Production web image. Apache mpm_event + PHP-FPM. OPcache on, JIT enabled. |
+| `ianmgg/php85fpm` | `dev` | `Dockerfile.apache.dev` | Development web image. Extends `latest`. Adds Xdebug, OPcache disabled. |
+| `ianmgg/php85fpm` | `cli` | `Dockerfile.cli` | CLI image for queue workers and websocket servers (Horizon, Reverb). OPcache enabled for long-running processes. |
+| `ianmgg/php85fpm` | `cli-dev` | `Dockerfile.cli.dev` | Development CLI image. Extends `cli`. Adds Xdebug, OPcache disabled. |
 
 ---
 
 ### Building locally
 
-All commands are run from the **repository root** (the build context must be the repo root so `COPY fpm/8.3/...` paths resolve correctly).
+All commands are run from the **repository root** (the build context must be the repo root so `COPY fpm/8.5/...` paths resolve correctly).
 
 ```bash
 # Production web image
-docker buildx build -f fpm/8.3/Dockerfile.apache -t ianmgg/php83fpm:latest .
+docker buildx build -f fpm/8.5/Dockerfile.apache -t ianmgg/php85fpm:latest .
 
 # Development web image (requires latest to be built or available on Docker Hub first)
-docker buildx build -f fpm/8.3/Dockerfile.apache.dev -t ianmgg/php83fpm:dev .
+docker buildx build -f fpm/8.5/Dockerfile.apache.dev -t ianmgg/php85fpm:dev .
 
 # CLI image
-docker buildx build -f fpm/8.3/Dockerfile.cli -t ianmgg/php83fpm:cli .
+docker buildx build -f fpm/8.5/Dockerfile.cli -t ianmgg/php85fpm:cli .
 
 # Development CLI image (requires cli to be built or available on Docker Hub first)
-docker buildx build -f fpm/8.3/Dockerfile.cli.dev -t ianmgg/php83fpm:cli-dev .
+docker buildx build -f fpm/8.5/Dockerfile.cli.dev -t ianmgg/php85fpm:cli-dev .
 ```
 
 To build for a specific platform:
 
 ```bash
-docker buildx build --platform linux/amd64 -f fpm/8.3/Dockerfile.apache -t ianmgg/php83fpm:latest .
-docker buildx build --platform linux/arm64 -f fpm/8.3/Dockerfile.apache -t ianmgg/php83fpm:latest .
+docker buildx build --platform linux/amd64 -f fpm/8.5/Dockerfile.apache -t ianmgg/php85fpm:latest .
+docker buildx build --platform linux/arm64 -f fpm/8.5/Dockerfile.apache -t ianmgg/php85fpm:latest .
 ```
 
 ---
@@ -57,7 +57,7 @@ docker buildx build --platform linux/arm64 -f fpm/8.3/Dockerfile.apache -t ianmg
              │ Unix socket
              │ /var/run/php-fpm.sock
 ┌────────────▼────────────────┐
-│  PHP-FPM 8.3                │
+│  PHP-FPM 8.5                │
 │  OPcache + JIT              │
 └─────────────────────────────┘
 ```
@@ -93,7 +93,7 @@ JIT is on by default (`tracing`, 64MB buffer) and can be switched per container.
 | `PHP_OPCACHE_JIT_BUFFER_SIZE` | e.g. `32M` | Buffer size while JIT is on; ignored when off |
 
 ```bash
-docker run -e PHP_OPCACHE_JIT=off ianmgg/php83fpm:latest
+docker run -e PHP_OPCACHE_JIT=off ianmgg/php85fpm:latest
 ```
 
 An unrecognised value logs a warning and leaves the default in place. The `dev` and `cli-dev` images disable OPcache entirely, so JIT is off there regardless of the flag.
