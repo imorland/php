@@ -1,0 +1,51 @@
+#!/bin/sh
+# Downloads the DB-IP Country Lite database for offline IP -> country lookups,
+# for use with the maxminddb extension.
+#
+# Run at image build time only. The database is baked into the image so nothing
+# is fetched at runtime; it refreshes when the image is rebuilt.
+#
+# DB-IP publishes a month-stamped file and a new one appears on the 1st, so the
+# URL cannot be pinned in the Dockerfile. The current month is tried first, then
+# the previous one, so a build running before that month's file is published
+# still succeeds.
+#
+# DB-IP Country Lite is CC BY 4.0: attribution is required wherever the data is
+# surfaced. See https://db-ip.com/db/download/ip-to-country-lite
+set -e
+
+# An explicit argument wins, then GEOIP_DB_PATH, then the default. Ordered this
+# way so the script can be pointed elsewhere for testing even though the
+# Dockerfile sets GEOIP_DB_PATH in the environment.
+DEST="${1:-${GEOIP_DB_PATH:-/usr/share/GeoIP/dbip-country-lite.mmdb}}"
+TMP="$(mktemp)"
+
+mkdir -p "$(dirname "$DEST")"
+
+for offset in 0 1; do
+    # BusyBox/GNU date use -d; BSD date uses -v. Try both so the script is not
+    # tied to one base image.
+    month="$(date -u -d "-${offset} month" +%Y-%m 2>/dev/null || date -u -v-"${offset}"m +%Y-%m)"
+    url="https://download.db-ip.com/free/dbip-country-lite-${month}.mmdb.gz"
+
+    if curl -fsSL "$url" -o "$TMP"; then
+        gunzip -c "$TMP" > "$DEST"
+        rm -f "$TMP"
+
+        # Fail the build on a truncated or corrupt download rather than shipping
+        # an unreadable database that only surfaces at runtime.
+        if [ ! -s "$DEST" ]; then
+            echo "ERROR: downloaded database is empty" >&2
+            exit 1
+        fi
+
+        echo "DB-IP Country Lite ${month} installed at ${DEST} ($(du -h "$DEST" | cut -f1))"
+        exit 0
+    fi
+
+    echo "notice: ${month} not available, trying previous month" >&2
+done
+
+rm -f "$TMP"
+echo "ERROR: could not download DB-IP Country Lite database" >&2
+exit 1
