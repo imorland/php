@@ -12,6 +12,10 @@
 #
 # DB-IP Country Lite is CC BY 4.0: attribution is required wherever the data is
 # surfaced. See https://db-ip.com/db/download/ip-to-country-lite
+#
+# An ATTRIBUTION.txt is written next to the database so the licence travels with
+# the data. Consumers inspecting the image can find out where it came from and
+# what CC BY 4.0 requires of them -- a comment in this file never ships.
 set -e
 
 # An explicit argument wins, then GEOIP_DB_PATH, then the default. Ordered this
@@ -38,6 +42,25 @@ for offset in 0 1; do
             echo "ERROR: downloaded database is empty" >&2
             exit 1
         fi
+
+        # Written per-build so the stated edition always matches the data that
+        # actually landed, rather than a month hardcoded somewhere else.
+        cat > "$(dirname "$DEST")/ATTRIBUTION.txt" <<EOF
+IP Geolocation by DB-IP (https://db-ip.com)
+
+This image bundles the DB-IP Country Lite database (edition ${month}),
+licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+
+ATTRIBUTION IS REQUIRED. If your application surfaces results derived from
+this database, you must credit DB-IP wherever those results are displayed.
+For web applications DB-IP asks for a hyperlinked credit, for example:
+
+    <a href="https://db-ip.com">IP Geolocation by DB-IP</a>
+
+The database file itself is unmodified as distributed by DB-IP.
+Source: https://db-ip.com/db/download/ip-to-country-lite
+EOF
 
         echo "DB-IP Country Lite ${month} installed at ${DEST} ($(du -h "$DEST" | cut -f1))"
         exit 0
