@@ -83,6 +83,11 @@ ENV GEOIP_DB_PATH="/usr/share/GeoIP/dbip-country-lite.mmdb"
 COPY 8/8.5/bin/fetch-geoip-db /usr/local/bin/fetch-geoip-db
 RUN chmod +x /usr/local/bin/fetch-geoip-db && fetch-geoip-db
 
+# Declare the bundled data's licence so it is discoverable without unpacking the
+# image. This covers the DB-IP database the image carries, not the image's own
+# content; /usr/share/GeoIP/ATTRIBUTION.txt states what CC BY 4.0 requires.
+LABEL org.opencontainers.image.licenses="CC-BY-4.0"
+
 # Apache settings
 COPY 8/8.5/etc/apache2/conf-enabled/host.conf /etc/apache2/conf-enabled/host.conf
 COPY 8/8.5/etc/apache2/apache2.conf /etc/apache2/apache2.conf
