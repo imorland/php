@@ -11,7 +11,6 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     libjpeg62-turbo-dev \
     libmcrypt-dev \
     libzip-dev \
-    libgeoip-dev \
     libxml2-dev \
     libxslt-dev \
     libssl-dev \
