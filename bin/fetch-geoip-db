@@ -1,0 +1,99 @@
+#!/bin/sh
+# Downloads the offline IP geolocation databases baked into these images, for
+# use with the maxminddb extension (and the maxmind-db/reader composer package,
+# which reads any valid mmdb regardless of its declared database type).
+#
+# Run at image build time only. The databases are baked into the image so
+# nothing is fetched at runtime; they refresh when the image is rebuilt.
+#
+# Databases installed, all DB-IP Lite editions under CC BY 4.0:
+#
+#   country  continent, country
+#   city     + city, subdivision, lat/lon
+#   asn      autonomous system number and organisation
+#
+# DB-IP publishes month-stamped files and a new one appears on the 1st, so the
+# URLs cannot be pinned. The current month is tried first, then the previous
+# one, so a build running before that month's file is published still succeeds.
+#
+# An ATTRIBUTION.txt is written next to the databases so the licence travels
+# with the data. Consumers inspecting the image can find out where it came from
+# and what CC BY 4.0 requires of them -- a comment in this file never ships.
+set -e
+
+# Defaults match the env vars the Dockerfiles export. An explicit argument wins
+# so the script can be pointed elsewhere for testing.
+GEOIP_DIR="${1:-$(dirname "${GEOIP_DB_PATH:-/usr/share/GeoIP/x}")}"
+COUNTRY_DEST="${GEOIP_DB_PATH:-${GEOIP_DIR}/dbip-country-lite.mmdb}"
+CITY_DEST="${GEOIP_CITY_DB_PATH:-${GEOIP_DIR}/dbip-city-lite.mmdb}"
+ASN_DEST="${GEOIP_ASN_DB_PATH:-${GEOIP_DIR}/dbip-asn-lite.mmdb}"
+
+mkdir -p "$GEOIP_DIR"
+
+# Fetch a month-stamped DB-IP database, trying the current month then the
+# previous one. $1 = db name in the URL, $2 = destination path.
+# Sets DBIP_MONTH to the edition that actually landed.
+fetch_dbip() {
+    _name="$1"
+    _dest="$2"
+    _tmp="$(mktemp)"
+
+    for _offset in 0 1; do
+        # BusyBox/GNU date use -d; BSD date uses -v. Try both so the script is
+        # not tied to one base image.
+        _month="$(date -u -d "-${_offset} month" +%Y-%m 2>/dev/null || date -u -v-"${_offset}"m +%Y-%m)"
+        _url="https://download.db-ip.com/free/dbip-${_name}-lite-${_month}.mmdb.gz"
+
+        if curl -fsSL "$_url" -o "$_tmp"; then
+            gunzip -c "$_tmp" > "$_dest"
+            rm -f "$_tmp"
+
+            # Fail the build on a truncated or corrupt download rather than
+            # shipping an unreadable database that only surfaces at runtime.
+            if [ ! -s "$_dest" ]; then
+                echo "ERROR: downloaded ${_name} database is empty" >&2
+                exit 1
+            fi
+
+            DBIP_MONTH="$_month"
+            echo "DB-IP ${_name} Lite ${_month} installed at ${_dest} ($(du -h "$_dest" | cut -f1))"
+            return 0
+        fi
+
+        echo "notice: ${_name} ${_month} not available, trying previous month" >&2
+    done
+
+    rm -f "$_tmp"
+    echo "ERROR: could not download DB-IP ${_name} Lite database" >&2
+    exit 1
+}
+
+fetch_dbip country "$COUNTRY_DEST"
+fetch_dbip city "$CITY_DEST"
+fetch_dbip asn "$ASN_DEST"
+
+# Written per-build so the stated edition always matches the data that actually
+# landed, rather than a month hardcoded somewhere else.
+cat > "${GEOIP_DIR}/ATTRIBUTION.txt" <<EOF
+IP Geolocation by DB-IP (https://db-ip.com)
+
+This image bundles the DB-IP Country, City and ASN Lite databases
+(edition ${DBIP_MONTH}), licensed under Creative Commons Attribution 4.0
+International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+
+ATTRIBUTION IS REQUIRED. If your application surfaces results derived from
+these databases, you must credit DB-IP wherever those results are displayed.
+For web applications DB-IP asks for a hyperlinked credit, for example:
+
+    <a href="https://db-ip.com">IP Geolocation by DB-IP</a>
+
+Files: $(basename "$COUNTRY_DEST")
+       $(basename "$CITY_DEST")
+       $(basename "$ASN_DEST")
+
+The database files are redistributed unmodified as published by DB-IP.
+Source: https://db-ip.com/db/download/ip-to-country-lite
+        https://db-ip.com/db/download/ip-to-city-lite
+        https://db-ip.com/db/download/ip-to-asn-lite
+EOF

@@ -4,15 +4,21 @@ Images built from this repository bundle third-party data and software that
 carry their own licence terms. Those terms are listed here, along with what they
 require of anyone using the images.
 
-## DB-IP Country Lite
+## DB-IP Country, City and ASN Lite
 
 - **Used in:** `php83`/`php85` FPM images (apache, cli); `php85` images (apache, cli)
-- **Installed at:** the path in `GEOIP_DB_PATH` (`/usr/share/GeoIP/dbip-country-lite.mmdb`)
+- **Installed at:** the paths in `GEOIP_DB_PATH`, `GEOIP_CITY_DB_PATH` and `GEOIP_ASN_DB_PATH`
 - **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
-- **Source:** https://db-ip.com/db/download/ip-to-country-lite
+- **Source:** https://db-ip.com/db/download/ip-to-country-lite,
+  https://db-ip.com/db/download/ip-to-city-lite
+  and https://db-ip.com/db/download/ip-to-asn-lite
 
-The database is redistributed unmodified. A fresh edition is downloaded each
+The databases are redistributed unmodified. A fresh edition is downloaded each
 time the images are rebuilt, so the bundled data tracks DB-IP's monthly release.
+
+These are Lite editions: reduced coverage and accuracy compared to DB-IP's
+commercial databases. City-level results and coordinates should be treated as
+approximate.
 
 ### What CC BY 4.0 requires
 

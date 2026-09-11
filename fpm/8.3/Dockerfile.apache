@@ -81,17 +81,22 @@ RUN pecl install imagick && docker-php-ext-enable imagick
 # on every request. Requires libmaxminddb0 at runtime -- do not purge it.
 RUN pecl install maxminddb && docker-php-ext-enable maxminddb
 
-# GeoIP database (DB-IP Country Lite, CC BY 4.0).
+# GeoIP databases (DB-IP Country, City and ASN Lite, CC BY 4.0).
 #
 # Baked in at build time so lookups are entirely offline; the data refreshes
-# whenever the image is rebuilt. GEOIP_DB_PATH is exported so consuming
-# applications can locate the database without hardcoding the path.
-ENV GEOIP_DB_PATH="/usr/share/GeoIP/dbip-country-lite.mmdb"
-COPY fpm/8.3/bin/fetch-geoip-db /usr/local/bin/fetch-geoip-db
+# whenever the image is rebuilt. The paths are exported so consuming
+# applications can locate the databases without hardcoding them.
+#
+# GEOIP_DB_PATH keeps its original name for backwards compatibility -- it was
+# the only database when this was introduced.
+ENV GEOIP_DB_PATH="/usr/share/GeoIP/dbip-country-lite.mmdb" \
+    GEOIP_CITY_DB_PATH="/usr/share/GeoIP/dbip-city-lite.mmdb" \
+    GEOIP_ASN_DB_PATH="/usr/share/GeoIP/dbip-asn-lite.mmdb"
+COPY bin/fetch-geoip-db /usr/local/bin/fetch-geoip-db
 RUN chmod +x /usr/local/bin/fetch-geoip-db && fetch-geoip-db
 
 # Declare the bundled data's licence so it is discoverable without unpacking the
-# image. This covers the DB-IP database the image carries, not the image's own
+# image. This covers the databases the image carries, not the image's own
 # content; /usr/share/GeoIP/ATTRIBUTION.txt states what CC BY 4.0 requires.
 LABEL org.opencontainers.image.licenses="CC-BY-4.0"
 
