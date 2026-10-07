@@ -81,6 +81,11 @@ RUN pecl install imagick && docker-php-ext-enable imagick
 # on every request. Requires libmaxminddb0 at runtime -- do not purge it.
 RUN pecl install maxminddb && docker-php-ext-enable maxminddb
 
+# Install excimer, Wikimedia's low-overhead sampling profiler. Sentry's PHP SDK
+# uses it for profiling (fof/sentry's profiling sample rate). It costs nothing
+# until a profiler is started, so loading it on every request is harmless.
+RUN pecl install excimer && docker-php-ext-enable excimer
+
 # GeoIP databases (DB-IP Country, City and ASN Lite, CC BY 4.0).
 #
 # Baked in at build time so lookups are entirely offline; the data refreshes
