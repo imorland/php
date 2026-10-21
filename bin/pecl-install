@@ -1,40 +1,113 @@
 #!/bin/sh
-# Runs `pecl install` with retries, for image builds.
+# Installs a PECL extension for image builds, surviving pecl.php.net outages.
 #
 # pecl.php.net is a single, volunteer-run service. Under load -- for example
 # when a PHP security release has everyone rebuilding images at once -- it
-# answers package downloads with 500/504s or claims a package has no releases.
-# Each of those failed a whole build matrix outright. A short backoff usually
-# gets through, so retry before giving up.
+# answers package downloads with 500/504s or claims a package has no releases,
+# sometimes for hours. Each of those failed a whole build matrix outright.
 #
-# Usage: pecl-install [pecl install arguments...]
+# So: try `pecl install` a few times with backoff. If that still fails, build
+# the same release from the extension's GitHub tag instead, with phpize,
+# configure and make. pecl's small metadata endpoint (rest/r/<name>/stable.txt)
+# usually keeps answering when tarball downloads do not, so it still decides
+# which version "latest stable" means.
+#
+# Usage: pecl-install [--configureoptions 'key="value" ...'] <name>[-<version>]
 # e.g.   pecl-install --configureoptions 'enable-redis-lz4="yes"' redis
+#        pecl-install xdebug-3.5.3
 #
-# Retries are tunable for testing: PECL_INSTALL_ATTEMPTS (default 6) and
-# PECL_INSTALL_DELAY, the first wait in seconds (default 10), which doubles on
-# each further attempt.
+# Tunable for testing: PECL_INSTALL_ATTEMPTS (default 3), PECL_INSTALL_DELAY
+# (first wait in seconds, default 10, doubling each attempt) and
+# PECL_INSTALL_FORCE_GITHUB=1 to skip pecl.php.net entirely.
 set -e
 
-ATTEMPTS="${PECL_INSTALL_ATTEMPTS:-6}"
+ATTEMPTS="${PECL_INSTALL_ATTEMPTS:-3}"
 DELAY="${PECL_INSTALL_DELAY:-10}"
 
-attempt=1
-while :; do
-    if pecl install "$@"; then
-        exit 0
+OPTIONS=""
+if [ "$1" = "--configureoptions" ]; then
+    OPTIONS="$2"
+    shift 2
+fi
+PACKAGE="$1"
+
+# GitHub repository and tag prefix for each extension these images install.
+github_source() {
+    case "$1" in
+        redis)     echo "phpredis/phpredis" ;;
+        imagick)   echo "Imagick/imagick" ;;
+        maxminddb) echo "maxmind/MaxMind-DB-Reader-php v" ;;
+        excimer)   echo "wikimedia/mediawiki-php-excimer" ;;
+        xdebug)    echo "xdebug/xdebug" ;;
+        *)         return 1 ;;
+    esac
+}
+
+from_pecl() {
+    attempt=1
+    delay="$DELAY"
+    while :; do
+        if [ -n "$OPTIONS" ]; then
+            pecl install --configureoptions "$OPTIONS" "$PACKAGE" && return 0
+        else
+            pecl install "$PACKAGE" && return 0
+        fi
+        [ "$attempt" -ge "$ATTEMPTS" ] && return 1
+        echo "pecl install $PACKAGE failed (attempt ${attempt}/${ATTEMPTS}), retrying in ${delay}s" >&2
+        sleep "$delay"
+        attempt=$((attempt + 1))
+        delay=$((delay * 2))
+        # A failed attempt can leave a half-downloaded package in pear's cache.
+        rm -rf /tmp/pear
+    done
+}
+
+from_github() {
+    # Split "xdebug-3.5.3" into name and version; a bare name means latest stable.
+    name="${PACKAGE%%-*}"
+    version=""
+    [ "$name" != "$PACKAGE" ] && version="${PACKAGE#*-}"
+    if [ -z "$version" ]; then
+        version="$(curl -fsSL --retry 3 "https://pecl.php.net/rest/r/${name}/stable.txt")"
     fi
 
-    if [ "$attempt" -ge "$ATTEMPTS" ]; then
-        echo "ERROR: pecl install $* failed after ${ATTEMPTS} attempts" >&2
-        exit 1
-    fi
+    source="$(github_source "$name")" || {
+        echo "ERROR: no GitHub fallback known for ${name}" >&2
+        return 1
+    }
+    repo="${source% *}"
+    prefix=""
+    [ "$repo" != "$source" ] && prefix="${source#* }"
 
-    echo "pecl install $* failed (attempt ${attempt}/${ATTEMPTS}), retrying in ${DELAY}s" >&2
-    sleep "$DELAY"
-    attempt=$((attempt + 1))
-    DELAY=$((DELAY * 2))
+    echo "Building ${name} ${version} from github.com/${repo} (tag ${prefix}${version})" >&2
+    build="$(mktemp -d)"
+    curl -fsSL --retry 3 "https://github.com/${repo}/archive/refs/tags/${prefix}${version}.tar.gz" \
+        | tar -xz -C "$build" --strip-components=1
 
-    # A failed attempt can leave a half-downloaded package in pear's cache;
-    # clear it so the retry fetches a fresh copy.
-    rm -rf /tmp/pear
-done
+    # The extension sources are wherever config.m4 is (maxminddb keeps it in ext/).
+    src="$(dirname "$(find "$build" -maxdepth 2 -name config.m4 | head -n 1)")"
+
+    # Some sources (imagick) carry a version placeholder that `pecl package`
+    # fills in when it builds the release tarball. Fill it in the same way.
+    grep -rl '@PACKAGE_VERSION@' "$src" | xargs -r sed -i "s/@PACKAGE_VERSION@/${version}/g"
+
+    # pecl's --configureoptions take key="value" pairs; configure wants --key=value.
+    # shellcheck disable=SC2086 # word splitting of the options is intended
+    set -- $(echo "$OPTIONS" | sed -E 's/([A-Za-z0-9_-]+)="?([^" ]*)"?/--\1=\2/g')
+
+    (
+        cd "$src"
+        phpize
+        ./configure "$@"
+        make -j "$(nproc)"
+        make install
+    )
+    rm -rf "$build"
+}
+
+if [ "${PECL_INSTALL_FORCE_GITHUB:-0}" != 1 ] && from_pecl; then
+    exit 0
+fi
+
+echo "pecl.php.net unavailable for ${PACKAGE}, falling back to GitHub" >&2
+from_github
