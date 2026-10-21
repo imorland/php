@@ -6,8 +6,12 @@ FROM ianmgg/php85fpm:cli
 ENV PROVISION_CONTEXT="development"
 ENV DEBIAN_FRONTEND=noninteractive
 
+# pecl.php.net fails under load; pecl-install retries with backoff.
+COPY bin/pecl-install /usr/local/bin/pecl-install
+RUN chmod +x /usr/local/bin/pecl-install
+
 # Install xdebug, enable it, and configure the log
-RUN pecl install xdebug-3.5.3 && \
+RUN pecl-install xdebug-3.5.3 && \
     docker-php-ext-enable xdebug && \
     touch /var/log/xdebug.log && \
     chmod 777 /var/log/xdebug.log
