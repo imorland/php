@@ -1,0 +1,40 @@
+#!/bin/sh
+# Runs `pecl install` with retries, for image builds.
+#
+# pecl.php.net is a single, volunteer-run service. Under load -- for example
+# when a PHP security release has everyone rebuilding images at once -- it
+# answers package downloads with 500/504s or claims a package has no releases.
+# Each of those failed a whole build matrix outright. A short backoff usually
+# gets through, so retry before giving up.
+#
+# Usage: pecl-install [pecl install arguments...]
+# e.g.   pecl-install --configureoptions 'enable-redis-lz4="yes"' redis
+#
+# Retries are tunable for testing: PECL_INSTALL_ATTEMPTS (default 6) and
+# PECL_INSTALL_DELAY, the first wait in seconds (default 10), which doubles on
+# each further attempt.
+set -e
+
+ATTEMPTS="${PECL_INSTALL_ATTEMPTS:-6}"
+DELAY="${PECL_INSTALL_DELAY:-10}"
+
+attempt=1
+while :; do
+    if pecl install "$@"; then
+        exit 0
+    fi
+
+    if [ "$attempt" -ge "$ATTEMPTS" ]; then
+        echo "ERROR: pecl install $* failed after ${ATTEMPTS} attempts" >&2
+        exit 1
+    fi
+
+    echo "pecl install $* failed (attempt ${attempt}/${ATTEMPTS}), retrying in ${DELAY}s" >&2
+    sleep "$DELAY"
+    attempt=$((attempt + 1))
+    DELAY=$((DELAY * 2))
+
+    # A failed attempt can leave a half-downloaded package in pear's cache;
+    # clear it so the retry fetches a fresh copy.
+    rm -rf /tmp/pear
+done

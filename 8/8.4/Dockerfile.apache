@@ -60,8 +60,12 @@ RUN docker-php-ext-install pcntl
 RUN docker-php-ext-install sockets
 RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
+# pecl.php.net fails under load; pecl-install retries with backoff.
+COPY bin/pecl-install /usr/local/bin/pecl-install
+RUN chmod +x /usr/local/bin/pecl-install
+
 # Install redis extension with LZ4 and Zstd compression support
-RUN pecl install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
+RUN pecl-install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
     && docker-php-ext-enable redis
 
 # Apache settings
