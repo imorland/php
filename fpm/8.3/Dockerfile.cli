@@ -47,10 +47,25 @@ RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install 
     imagemagick \
     ghostscript \
     libavif-dev \
+    libargon2-dev \
+    libcurl4-openssl-dev \
+    libreadline-dev \
+    libsodium-dev \
+    libsqlite3-dev \
     libmaxminddb0 \
     libmaxminddb-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# PHP 8.3.36 fixes CVE-2026-109618 and CVE-2026-109619 (PHP2Shell). Rebuild PHP
+# from the php.net source release until the official php:8.3-cli image
+# carries it; php-from-source does nothing once it does. Keep this before
+# the extension builds below, which compile against the rebuilt PHP.
+ARG PHP_SOURCE_VERSION=8.3.36
+ARG PHP_SOURCE_SHA256=dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd
+COPY bin/php-from-source /usr/local/bin/php-from-source
+RUN chmod +x /usr/local/bin/php-from-source && \
+    php-from-source "$PHP_SOURCE_VERSION" "$PHP_SOURCE_SHA256"
 
 # PHP extensions, separated for QEMU build purposes
 RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg --with-avif
