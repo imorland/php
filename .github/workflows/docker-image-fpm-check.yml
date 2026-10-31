@@ -129,12 +129,14 @@ jobs:
     - name: Size against published images
       if: always()
       run: |
+        # Written to the log as well as the summary: summaries are only
+        # visible in the web UI, not through the API or gh run view --log.
         {
           echo "### ${IMAGE} (${{ matrix.arch }})"
           echo
           echo "| Tag | Published | This PR |"
           echo "|-----|-----------|---------|"
-        } >> "$GITHUB_STEP_SUMMARY"
+        } | tee -a "$GITHUB_STEP_SUMMARY"
         for tag in latest cli dev cli-dev; do
           # Uncompressed size in the local image store, so both columns are
           # measured the same way.
@@ -144,5 +146,5 @@ jobs:
             old="$(docker image inspect -f '{{.Size}}' "$IMAGE:$tag-${{ matrix.arch }}")"
             docker rmi "$IMAGE:$tag-${{ matrix.arch }}" >/dev/null
           fi
-          echo "| \`$tag\` | $((old / 1048576)) MB | $((new / 1048576)) MB |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`$tag\` | $((old / 1048576)) MB | $((new / 1048576)) MB |" | tee -a "$GITHUB_STEP_SUMMARY"
         done
