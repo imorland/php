@@ -1,0 +1,146 @@
+name: Docker Image Check - FPM
+
+# Builds and smoke-tests the FPM images for a pull request, without pushing.
+#
+# docker-image-fpm.yml only builds on master and pushes straight to the
+# published tags, so without this a Dockerfile that fails to build -- or builds
+# but cannot load an extension -- is only found after merge, by which point
+# the arch tags may already be overwritten.
+on:
+  pull_request:
+    paths:
+      - 'fpm/**'
+      # pecl-install and fetch-geoip-db are copied into the FPM images
+      - 'bin/**'
+      - '.github/workflows/docker-image-fpm.yml'
+      - '.github/workflows/docker-image-fpm-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['8.3', '8.5']
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          - version: '8.3'
+            image: php83fpm
+          - version: '8.5'
+            image: php85fpm
+    env:
+      IMAGE: ianmgg/${{ matrix.image }}
+    steps:
+    - uses: actions/checkout@v4
+
+    # The engine's own builder (no setup-buildx) keeps results in the local
+    # image store, so the dev Dockerfiles' `FROM ianmgg/<image>:latest` and
+    # `:cli` resolve to the images just built here, not the published ones.
+    - name: Build apache
+      run: docker build --progress=plain -f fpm/${{ matrix.version }}/Dockerfile.apache -t "$IMAGE:latest" .
+    - name: Build cli
+      run: docker build --progress=plain -f fpm/${{ matrix.version }}/Dockerfile.cli -t "$IMAGE:cli" .
+    - name: Build dev
+      run: docker build --progress=plain -f fpm/${{ matrix.version }}/Dockerfile.apache.dev -t "$IMAGE:dev" .
+    - name: Build cli-dev
+      run: docker build --progress=plain -f fpm/${{ matrix.version }}/Dockerfile.cli.dev -t "$IMAGE:cli-dev" .
+
+    - name: Extensions load cleanly
+      run: |
+        exts="gd calendar intl pdo_mysql pdo_pgsql pdo_sqlite zip exif pcntl sockets redis imagick maxminddb Zend_OPcache"
+        [ "${{ matrix.version }}" = "8.5" ] && exts="$exts excimer"
+        status=0
+        for tag in latest cli dev cli-dev; do
+          want="$exts"
+          case "$tag" in *dev) want="$want xdebug" ;; esac
+          # A missing shared library makes PHP print a startup warning, which
+          # would otherwise only show up in a production log.
+          out="$(docker run --rm "$IMAGE:$tag" php -m 2>&1)"
+          if printf '%s\n' "$out" | grep -qiE 'warning|unable to load'; then
+            echo "FAIL $tag: PHP startup warning"; printf '%s\n' "$out"; status=1
+          fi
+          for ext in $want; do
+            name="${ext/Zend_OPcache/Zend OPcache}"
+            if printf '%s\n' "$out" | grep -qxF "$name"; then
+              echo "PASS $tag: $name"
+            else
+              echo "FAIL $tag: $name not loaded"; status=1
+            fi
+          done
+        done
+        exit $status
+
+    - name: Tools are present
+      run: |
+        status=0
+        tools="aws composer git ssh less mariadb mariadb-dump mytop convert magick gs jq vim xxd redis-cli python3 crontab gosu curl wget nc ping unzip zip killall"
+        for tag in latest cli; do
+          for t in $tools; do
+            if docker run --rm "$IMAGE:$tag" sh -c "command -v $t" >/dev/null; then
+              echo "PASS $tag: $t"
+            else
+              echo "FAIL $tag: $t missing"; status=1
+            fi
+          done
+        done
+        # ImageMagick coders and delegates the images promise
+        for fmt in AVIF HEIC WEBP SVG PDF; do
+          if docker run --rm "$IMAGE:latest" sh -c "magick -list format | grep -qE '^ *$fmt\*? '"; then
+            echo "PASS ImageMagick format: $fmt"
+          else
+            echo "FAIL ImageMagick format: $fmt"; status=1
+          fi
+        done
+        # mytop is a perl script; it needs DBI and the MariaDB driver
+        if docker run --rm "$IMAGE:latest" perl -MDBI -MDBD::MariaDB -e1; then
+          echo "PASS perl DBD::MariaDB"
+        else
+          echo "FAIL perl DBD::MariaDB"; status=1
+        fi
+        exit $status
+
+    - name: Apache serves PHP through FPM
+      run: |
+        docker run -d --name web -p 8080:8080 "$IMAGE:latest"
+        for i in $(seq 1 30); do
+          if curl -fsS http://127.0.0.1:8080/ -o page.html 2>/dev/null; then break; fi
+          sleep 1
+        done
+        if grep -q "PHP Version" page.html 2>/dev/null; then
+          echo "PASS apache -> php-fpm"
+        else
+          echo "FAIL apache -> php-fpm"; docker logs web; exit 1
+        fi
+
+    - name: Size against published images
+      if: always()
+      run: |
+        {
+          echo "### ${IMAGE} (${{ matrix.arch }})"
+          echo
+          echo "| Tag | Published | This PR |"
+          echo "|-----|-----------|---------|"
+        } >> "$GITHUB_STEP_SUMMARY"
+        for tag in latest cli dev cli-dev; do
+          # Uncompressed size in the local image store, so both columns are
+          # measured the same way.
+          new="$(docker image inspect -f '{{.Size}}' "$IMAGE:$tag" 2>/dev/null || echo 0)"
+          old=0
+          if docker pull -q --platform "linux/${{ matrix.arch }}" "$IMAGE:$tag-${{ matrix.arch }}" >/dev/null 2>&1; then
+            old="$(docker image inspect -f '{{.Size}}' "$IMAGE:$tag-${{ matrix.arch }}")"
+            docker rmi "$IMAGE:$tag-${{ matrix.arch }}" >/dev/null
+          fi
+          echo "| \`$tag\` | $((old / 1048576)) MB | $((new / 1048576)) MB |" >> "$GITHUB_STEP_SUMMARY"
+        done

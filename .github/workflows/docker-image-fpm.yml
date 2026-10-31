@@ -7,6 +7,8 @@ on:
     branches: [master]
     paths:
       - 'fpm/**'
+      # pecl-install and fetch-geoip-db are copied into the FPM images
+      - 'bin/**'
       - '.github/workflows/docker-image-fpm.yml'
   schedule:
     # 02:00 UTC on the 1st and 15th of each month, to pull in upstream PHP
