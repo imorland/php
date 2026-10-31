@@ -67,7 +67,10 @@ RUN chmod +x /usr/local/bin/pecl-install
 # a shared library something under /usr/local links against, so the purge keeps
 # exactly the runtime libraries the extensions need (libzip, libicu, libpq,
 # libavif, libMagickWand, liblz4, libzstd, libmaxminddb, ...). This is the same
-# technique the official php images use for their own build dependencies.
+# technique the official php images use for their own build dependencies, except
+# that the dpkg-query --search output is parsed strictly: "diversion by ..."
+# lines are dropped (they are not package names, and apt-mark fails on them),
+# and "pkg-a:arch, pkg-b: <path>" lines yield every owning package.
 #
 # xml is not built: it is compiled into the official php image already.
 RUN set -eux; \
@@ -117,7 +120,10 @@ RUN set -eux; \
         | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
         | sort -u \
         | xargs -r dpkg-query --search \
-        | cut -d: -f1 \
+        | grep -v '^diversion by ' \
+        | sed -E 's/: [^ ]+$//' \
+        | tr ',' '\n' \
+        | sed -E 's/^ +//; s/:.*$//' \
         | sort -u \
         | xargs -r apt-mark manual; \
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
