@@ -59,8 +59,7 @@ jobs:
 
     - name: Extensions load cleanly
       run: |
-        exts="gd calendar intl pdo_mysql pdo_pgsql pdo_sqlite zip exif pcntl sockets redis imagick maxminddb Zend_OPcache"
-        [ "${{ matrix.version }}" = "8.5" ] && exts="$exts excimer"
+        exts="gd calendar intl pdo_mysql pdo_pgsql pdo_sqlite zip exif pcntl sockets redis imagick maxminddb excimer Zend_OPcache"
         status=0
         for tag in latest cli dev cli-dev; do
           want="$exts"

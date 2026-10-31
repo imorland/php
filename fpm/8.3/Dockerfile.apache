@@ -110,7 +110,8 @@ RUN set -eux; \
     # faster than maxmind-db/reader's pure-PHP fallback (~1.7us vs ~160us per
     # lookup), which matters when a lookup happens on every request.
     pecl-install maxminddb; \
-    docker-php-ext-enable redis imagick maxminddb; \
+    pecl-install excimer; \
+    docker-php-ext-enable redis imagick maxminddb excimer; \
     \
     docker-php-source delete; \
     rm -rf /tmp/pear ~/.pearrc; \
@@ -135,7 +136,7 @@ RUN set -eux; \
     out="$(php -v 2>&1)"; \
     echo "$out"; \
     case "$out" in *Warning*|*"nable to load"*) exit 1 ;; esac; \
-    for ext in gd calendar intl pdo_mysql pdo_pgsql zip exif pcntl sockets redis imagick maxminddb; do \
+    for ext in gd calendar intl pdo_mysql pdo_pgsql zip exif pcntl sockets redis imagick maxminddb excimer; do \
         php -r "exit(extension_loaded('$ext') ? 0 : 1);" || { echo "extension $ext failed to load" >&2; exit 1; }; \
     done
 
