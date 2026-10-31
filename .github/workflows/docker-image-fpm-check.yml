@@ -114,8 +114,10 @@ jobs:
     - name: Apache serves PHP through FPM
       run: |
         docker run -d --name web -p 8080:8080 "$IMAGE:latest"
+        # Ask for index.php by name: Debian's apache2 package also installs
+        # /var/www/html/index.html, which DirectoryIndex serves for /.
         for i in $(seq 1 30); do
-          if curl -fsS http://127.0.0.1:8080/ -o page.html 2>/dev/null; then break; fi
+          if curl -fsS http://127.0.0.1:8080/index.php -o page.html 2>/dev/null; then break; fi
           sleep 1
         done
         if grep -q "PHP Version" page.html 2>/dev/null; then
