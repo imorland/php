@@ -20,6 +20,28 @@ The measurements and reasoning behind the OPcache, JIT, pool and `mpm_event` val
 
 ---
 
+### Extending these images
+
+The images ship runtime libraries only. The `-dev` packages (headers and static
+libraries) used to compile the bundled extensions are installed and purged in
+the same build step, so they never reach the image. The compiler toolchain
+from the official `php:8.5-fpm` base (`gcc`, `make`, `autoconf`, ...) is still
+present, so `pecl install` works for extensions with no library dependencies
+(the `dev` tags build Xdebug this way).
+
+An image built on top that compiles an extension against a system library must
+install that library's `-dev` package itself, for example:
+
+```dockerfile
+FROM ianmgg/php85fpm:latest
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libxslt1-dev \
+    && docker-php-ext-install xsl \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+---
+
 ### Building locally
 
 All commands are run from the **repository root** (the build context must be the repo root so `COPY fpm/8.5/...` paths resolve correctly).

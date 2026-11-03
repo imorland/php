@@ -2,93 +2,149 @@ FROM php:8.5-fpm
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Setup Debian packages
-RUN apt-get -y update && apt-get -y upgrade && ACCEPT_EULA=Y && apt-get install -y \
+# Runtime packages. --no-install-recommends keeps Debian from pulling in an
+# MTA (exim4), dbus, systemd extras and docs; recommends that do real work are
+# named explicitly instead:
+#   less, openssh-client      git's pager, and git/composer over SSH
+#   psmisc, xxd               killall/fuser/pstree, hex dumps
+#   fonts-droid-fallback      Ghostscript's CJK fallback font
+#   libmagickcore-*-extra     ImageMagick SVG, DjVu, OpenEXR and WMF coders
+#   libjxr-tools              ImageMagick's JPEG XR delegate
+#   libheif-plugin-*enc       HEIC and AVIF encoding through ImageMagick
+#   libdbd-mariadb-perl,      the perl tools in mariadb-client (mytop,
+#   libterm-readkey-perl      innotop, mariadb-hotcopy, ...)
+#
+# Headers, static libraries and other -dev packages are not installed here:
+# they only exist inside the extension build layer below.
+RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     apache2 \
     procps \
     cron \
     unzip \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libzip-dev \
-    libxml2-dev \
-    libxslt-dev \
-    libssl-dev \
-    zlib1g-dev \
-    libpng-dev \
-    libwebp-dev \
-    libjpeg-dev \
-    libonig-dev \
-    libicu-dev \
+    zip \
     apt-file \
     wget \
     gnupg \
     gnupg2 \
-    zip \
     git \
+    less \
+    openssh-client \
     curl \
-    gcc \
-    g++ \
-    autoconf \
-    libc-dev \
-    pkg-config \
     iputils-ping \
     netcat-openbsd \
     default-mysql-client \
+    libdbd-mariadb-perl \
+    libterm-readkey-perl \
     util-linux \
+    psmisc \
     gosu \
     jq \
     redis-tools \
     vim \
+    xxd \
     python3 \
-    liblz4-dev \
-    libzstd-dev \
-    libpq-dev \
-    libmagickwand-dev \
     imagemagick \
+    libmagickcore-7.q16-10-extra \
+    libjxr-tools \
+    libheif-plugin-aomenc \
+    libheif-plugin-x265 \
     ghostscript \
-    libavif-dev \
-    libmaxminddb0 \
-    libmaxminddb-dev && \
-    apt-get clean && \
+    fonts-droid-fallback \
+    libmaxminddb0 && \
     rm -rf /var/lib/apt/lists/*
-
-# PHP extensions, separated for QEMU build purposes
-RUN docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg --with-avif
-RUN docker-php-ext-install gd
-RUN docker-php-ext-install calendar
-RUN docker-php-ext-install intl
-RUN docker-php-ext-install pdo_mysql
-RUN docker-php-ext-install pdo_pgsql
-RUN docker-php-ext-install xml
-RUN docker-php-ext-install zip
-RUN docker-php-ext-install exif
-RUN docker-php-ext-install pcntl
-RUN docker-php-ext-install sockets
-RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # pecl.php.net fails under load; pecl-install retries with backoff.
 COPY bin/pecl-install /usr/local/bin/pecl-install
 RUN chmod +x /usr/local/bin/pecl-install
 
-# Install redis extension with LZ4 and Zstd compression support
-RUN pecl-install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis \
-    && docker-php-ext-enable redis
-
-# Install imagick extension
-RUN pecl-install imagick && docker-php-ext-enable imagick
-
-# Install maxminddb extension for offline IP -> country lookups.
+# PHP extensions, built in one layer so the build leaves nothing behind.
 #
-# The C decoder is roughly 100x faster than maxmind-db/reader's pure-PHP
-# fallback (~1.7us vs ~160us per lookup), which matters when a lookup happens
-# on every request. Requires libmaxminddb0 at runtime -- do not purge it.
-RUN pecl-install maxminddb && docker-php-ext-enable maxminddb
+# The -dev packages, the extracted PHP source and pear's download cache are all
+# installed, used and removed inside this RUN. Removing them in a later layer
+# would not shrink the image: the files would still ship in the earlier layer.
+#
+# After the build, every package is marked auto except those that were already
+# manual (the runtime packages above and the base image's) and those providing
+# a shared library something under /usr/local links against, so the purge keeps
+# exactly the runtime libraries the extensions need (libzip, libicu, libpq,
+# libavif, libMagickWand, liblz4, libzstd, libmaxminddb, ...). This is the same
+# technique the official php images use for their own build dependencies, except
+# that the dpkg-query --search output is parsed strictly: "diversion by ..."
+# lines are dropped (they are not package names, and apt-mark fails on them),
+# and "pkg-a:arch, pkg-b: <path>" lines yield every owning package.
+#
+# xml is not built: it is compiled into the official php image already.
+RUN set -eux; \
+    savedAptMark="$(apt-mark showmanual)"; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        libavif-dev \
+        libfreetype-dev \
+        libicu-dev \
+        libjpeg62-turbo-dev \
+        liblz4-dev \
+        libmagickwand-dev \
+        libmaxminddb-dev \
+        libpng-dev \
+        libpq-dev \
+        libwebp-dev \
+        libzip-dev \
+        libzstd-dev; \
+    \
+    docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg --with-avif; \
+    docker-php-ext-install -j"$(nproc)" \
+        gd \
+        calendar \
+        intl \
+        pdo_mysql \
+        pdo_pgsql \
+        zip \
+        exif \
+        pcntl \
+        sockets; \
+    \
+    # redis with LZ4 and Zstd compression support
+    pecl-install --configureoptions 'enable-redis-lz4="yes" with-liblz4="yes" enable-redis-zstd="yes"' redis; \
+    pecl-install imagick; \
+    # maxminddb: offline IP -> country lookups. The C decoder is roughly 100x
+    # faster than maxmind-db/reader's pure-PHP fallback (~1.7us vs ~160us per
+    # lookup), which matters when a lookup happens on every request.
+    pecl-install maxminddb; \
+    \
+    # excimer: Wikimedia's low-overhead sampling profiler. Sentry's PHP SDK
+    # uses it for profiling (fof/sentry's profiling sample rate). It costs
+    # nothing until a profiler is started.
+    pecl-install excimer; \
+    docker-php-ext-enable redis imagick maxminddb excimer; \
+    \
+    docker-php-source delete; \
+    rm -rf /tmp/pear ~/.pearrc; \
+    \
+    apt-mark auto '.*' > /dev/null; \
+    [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
+    find /usr/local -type f -executable -exec ldd '{}' ';' \
+        | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
+        | sort -u \
+        | xargs -r dpkg-query --search \
+        | grep -v '^diversion by ' \
+        | sed -E 's/: [^ ]+$//' \
+        | tr ',' '\n' \
+        | sed -E 's/^ +//; s/:.*$//' \
+        | sort -u \
+        | xargs -r apt-mark manual; \
+    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+    rm -rf /var/lib/apt/lists/*; \
+    \
+    # Fail the build here, not at runtime, if the purge took a library an
+    # extension needs: a missing .so makes PHP warn on startup.
+    out="$(php -v 2>&1)"; \
+    echo "$out"; \
+    case "$out" in *Warning*|*"nable to load"*) exit 1 ;; esac; \
+    for ext in gd calendar intl pdo_mysql pdo_pgsql zip exif pcntl sockets redis imagick maxminddb excimer; do \
+        php -r "exit(extension_loaded('$ext') ? 0 : 1);" || { echo "extension $ext failed to load" >&2; exit 1; }; \
+    done
 
-# Install excimer, Wikimedia's low-overhead sampling profiler. Sentry's PHP SDK
-# uses it for profiling (fof/sentry's profiling sample rate). It costs nothing
-# until a profiler is started, so loading it on every request is harmless.
-RUN pecl-install excimer && docker-php-ext-enable excimer
+RUN printf "log_errors = On \nerror_log = /dev/stderr\n" > /usr/local/etc/php/conf.d/php-logs.ini
 
 # GeoIP databases (DB-IP Country, City and ASN Lite, CC BY 4.0).
 #

@@ -7,6 +7,8 @@ on:
     branches: [master]
     paths:
       - 'fpm/**'
+      # pecl-install and fetch-geoip-db are copied into the FPM images
+      - 'bin/**'
       - '.github/workflows/docker-image-fpm.yml'
   schedule:
     # 02:00 UTC on the 1st and 15th of each month, to pull in upstream PHP
@@ -16,6 +18,19 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [build-docker-fpm]
+
+# Checkout is all the token is used for; Docker Hub auth comes from secrets.
+permissions:
+  contents: read
+
+# One publish at a time. Overlapping runs (a push landing during the scheduled
+# rebuild, say) would race on the arch tags, and the merge jobs could stitch
+# :latest together from images built by different runs. Queue rather than
+# cancel: a run cancelled mid-push leaves arch tags out of step with :latest.
+# GitHub keeps only the newest queued run, which builds the newest master.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   # Build apache and cli images on native runners for each arch
