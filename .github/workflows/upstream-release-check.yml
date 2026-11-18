@@ -1,0 +1,140 @@
+name: Upstream release check
+
+# Rebuilds the images as soon as something they are built from has a new
+# release, instead of waiting for the scheduled rebuilds (twice a month):
+#
+# - PHP: each image is compared with the official php image it is built FROM.
+#   docker-library publishes those within hours of a PHP release, so a
+#   security release reaches these images within a day.
+# - maxminddb: the images build MaxMind's latest release (bin/install-maxminddb).
+#   maxmind-db/reader raises its minimum ext-maxminddb version with every
+#   release, so until the images catch up, any app that bumps the reader fails
+#   `composer install` against them.
+#
+# The scheduled rebuilds stay: they also pick up Debian updates, which do not
+# change the PHP version.
+on:
+  schedule:
+    # 06:30 UTC daily, clear of the scheduled rebuilds (00:00 and 02:00).
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Lets GITHUB_TOKEN dispatch the image workflows. Unlike most events it
+  # triggers, a workflow_dispatch from GITHUB_TOKEN does start a run.
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    # Registry lookups count against Docker Hub's pull limit, which runners
+    # sharing an IP exhaust quickly when unauthenticated.
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+    - name: PHP versions against the official images
+      id: php
+      run: |
+        # PHP_VERSION is in each image's config, inherited from the official
+        # image, so it is read from the registry without pulling anything.
+        php_version() {
+          docker buildx imagetools inspect "$1" --format '{{json (index .Image "linux/amd64").Config.Env}}' \
+            | jq -r '.[] | select(startswith("PHP_VERSION=")) | sub("^PHP_VERSION="; "")'
+        }
+        # Prints OK or BEHIND for one image; returns 1 if it is behind.
+        check() {
+          have="$(php_version "$1")"
+          want="$(php_version "$2")"
+          if [ -z "$have" ] || [ -z "$want" ]; then
+            echo "::error::could not read PHP_VERSION from $1 or $2"
+            exit 1
+          fi
+          if [ "$have" = "$want" ]; then
+            echo "OK     $1: PHP $have"
+          else
+            echo "BEHIND $1: PHP $have, $2 has $want"
+            return 1
+          fi
+        }
+        fpm=false
+        prefork=false
+        for v in 8.3 8.5; do
+          img="ianmgg/php${v/./}fpm"
+          check "$img:latest" "php:$v-fpm" || fpm=true
+          check "$img:cli" "php:$v-cli" || fpm=true
+        done
+        for v in 8.2 8.3 8.4 8.5; do
+          img="ianmgg/php${v/./}"
+          check "$img:latest" "php:$v-apache-bookworm" || prefork=true
+          check "$img:cli" "php:$v-cli-bookworm" || prefork=true
+        done
+        echo "fpm=$fpm" >> "$GITHUB_OUTPUT"
+        echo "prefork=$prefork" >> "$GITHUB_OUTPUT"
+
+    - name: maxminddb against MaxMind's latest release
+      id: maxminddb
+      run: |
+        # The releases/latest redirect, not the rate-limited REST API, as in
+        # bin/install-maxminddb.
+        url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+          https://github.com/maxmind/MaxMind-DB-Reader-php-ext/releases/latest)"
+        tag="${url##*/tag/}"
+        case "$tag" in
+          v[0-9]*.[0-9]*.[0-9]*) ;;
+          *) echo "::error::unexpected releases/latest redirect: $url"; exit 1 ;;
+        esac
+        want="${tag#v}"
+        echo "MaxMind latest: $want"
+
+        # The extension version is not in the image config, so these are
+        # pulled. Every image that ships maxminddb is checked: a build that
+        # failed for one PHP version would otherwise leave it behind unnoticed.
+        check() {
+          have="$(docker run --rm --pull always --platform linux/amd64 "$1" \
+            php -r 'echo phpversion("maxminddb") ?: "missing";')"
+          # Empty means docker failed, not that the image is behind: a
+          # rebuild would fail the same way.
+          if [ -z "$have" ]; then
+            echo "::error::could not run $1"
+            exit 1
+          fi
+          if [ "$have" = "$want" ]; then
+            echo "OK     $1: maxminddb $have"
+          else
+            echo "BEHIND $1: maxminddb $have, latest is $want"
+            return 1
+          fi
+        }
+        fpm=false
+        prefork=false
+        for img in ianmgg/php85fpm:cli ianmgg/php83fpm:cli; do
+          check "$img" || fpm=true
+        done
+        for img in ianmgg/php85:cli ianmgg/php83:cli; do
+          check "$img" || prefork=true
+        done
+        echo "fpm=$fpm" >> "$GITHUB_OUTPUT"
+        echo "prefork=$prefork" >> "$GITHUB_OUTPUT"
+
+    # A rebuild that fails leaves the image behind, so tomorrow's check
+    # dispatches it again; the failed run shows up in Actions either way.
+    - name: Rebuild FPM images
+      if: steps.php.outputs.fpm == 'true' || steps.maxminddb.outputs.fpm == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh workflow run docker-image-fpm.yml --repo "$GITHUB_REPOSITORY" --ref master
+
+    - name: Rebuild mod_php images
+      if: steps.php.outputs.prefork == 'true' || steps.maxminddb.outputs.prefork == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh workflow run docker-image.yml --repo "$GITHUB_REPOSITORY" --ref master

@@ -7,6 +7,14 @@ We actively maintain images only for PHP versions that are currently supported. 
 
 For a list of currently supported PHP versions, refer to the official [PHP Supported Versions](https://www.php.net/supported-versions.php).
 
+### Rebuilds
+
+The images are rebuilt on the 1st and 15th of each month (FPM) or every 14
+days (mod_php), which picks up Debian updates. A daily check also rebuilds
+them as soon as the official `php` image they are built from has a new PHP
+release, or MaxMind releases a new `maxminddb` extension, so security
+releases arrive within a day.
+
 ### GeoIP data and attribution
 
 Some images bundle offline IP geolocation databases so lookups need no network
@@ -20,6 +28,11 @@ access at runtime. They are read via the `maxminddb` PHP extension (or the
 | `GEOIP_ASN_DB_PATH` | DB-IP ASN Lite | ASN, organisation | CC BY 4.0 |
 
 Currently included in: `php83`/`php85` FPM (apache, cli) and `php85` (apache, cli).
+
+The `maxminddb` extension is built from MaxMind's latest release rather than
+PECL, which lags behind it. Each `maxmind-db/reader` release requires the
+matching extension version, so the daily upstream check (below) also rebuilds
+the images whenever MaxMind releases, and the reader can be bumped freely.
 
 All three are redistributed unmodified and refreshed whenever the images are
 rebuilt. `GEOIP_DB_PATH` keeps its original name for backwards compatibility.
