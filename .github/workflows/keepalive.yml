@@ -6,7 +6,8 @@ name: Keepalive
 #
 # This workflow keeps the repo "active" by pushing an empty commit well
 # inside that 60-day window, so the scheduled builds in docker-image.yml
-# and docker-image-fpm.yml are never disabled.
+# and docker-image-fpm.yml, and the daily upstream-release-check.yml, are
+# never disabled.
 
 on:
   schedule:

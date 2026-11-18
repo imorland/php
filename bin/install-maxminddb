@@ -1,0 +1,96 @@
+#!/bin/sh
+# Builds and installs the maxminddb PHP extension from MaxMind's own GitHub
+# release, for image builds.
+#
+# Why not PECL: MaxMind releases maxmind-db/reader (composer) and the C
+# extension together, and every reader release raises its `conflict` floor on
+# ext-maxminddb to the matching extension version (v1.15.0 conflicts with
+# ext-maxminddb <1.15.0). PECL lags behind those releases, so an image built
+# from PECL made `composer install` fail for any app that bumped the reader.
+# Building MaxMind's latest release keeps the reader freely bumpable.
+#
+# libmaxminddb is compiled in (--with-maxminddb-bundled), as in MaxMind's own
+# pre-built binaries, so the extension needs no system library at build time or
+# at runtime: no libmaxminddb-dev to install, no libmaxminddb0 to keep.
+#
+# Usage: install-maxminddb [version]
+#   version  a release tag such as v1.15.0 (or 1.15.0). Defaults to
+#            $MAXMINDDB_VERSION, then to MaxMind's latest release.
+#
+# The latest release is found by following GitHub's releases/latest redirect,
+# not the REST API, so parallel matrix builds don't hit the API rate limit.
+#
+# Downloads are retried for testing and flaky networks: INSTALL_ATTEMPTS
+# (default 6) and INSTALL_DELAY, the first wait in seconds (default 10), which
+# doubles on each further attempt.
+#
+# Enabling the extension is left to the caller (docker-php-ext-enable
+# maxminddb). The build checks that the installed extension reports the version
+# it was built from.
+set -e
+
+REPO="https://github.com/maxmind/MaxMind-DB-Reader-php-ext"
+ATTEMPTS="${INSTALL_ATTEMPTS:-6}"
+DELAY="${INSTALL_DELAY:-10}"
+
+# Runs "$@" until it succeeds, with doubling backoff.
+retry() {
+    _attempt=1
+    _delay="$DELAY"
+    while :; do
+        if "$@"; then
+            return 0
+        fi
+        if [ "$_attempt" -ge "$ATTEMPTS" ]; then
+            echo "ERROR: $* failed after ${ATTEMPTS} attempts" >&2
+            return 1
+        fi
+        echo "$* failed (attempt ${_attempt}/${ATTEMPTS}), retrying in ${_delay}s" >&2
+        sleep "$_delay"
+        _attempt=$((_attempt + 1))
+        _delay=$((_delay * 2))
+    done
+}
+
+latest_tag() {
+    _url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${REPO}/releases/latest")" || return 1
+    _tag="${_url##*/tag/}"
+    # Anything but .../releases/tag/vX.Y.Z means the redirect changed shape.
+    case "$_tag" in
+        v[0-9]*.[0-9]*.[0-9]*) echo "$_tag" ;;
+        *) echo "ERROR: unexpected releases/latest redirect: $_url" >&2; return 1 ;;
+    esac
+}
+
+version="${1:-${MAXMINDDB_VERSION:-}}"
+if [ -z "$version" ]; then
+    version="$(retry latest_tag)"
+fi
+case "$version" in
+    v*) tag="$version" ;;
+    *) tag="v$version" ;;
+esac
+echo "Installing maxminddb ${tag} from ${REPO}"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+retry curl -fsSL -o "$work/maxminddb.tgz" \
+    "${REPO}/releases/download/${tag}/maxminddb-${tag}.tgz"
+
+# The release tarball is flat: config.m4 and the sources sit at its root.
+mkdir "$work/src"
+tar -xzf "$work/maxminddb.tgz" -C "$work/src"
+cd "$work/src"
+phpize
+./configure --with-maxminddb --with-maxminddb-bundled
+make -j"$(nproc)"
+make install
+cd /
+
+built="$(php -d extension=maxminddb -r 'echo phpversion("maxminddb");')"
+if [ "$built" != "${tag#v}" ]; then
+    echo "ERROR: built maxminddb reports version '${built}', expected '${tag#v}'" >&2
+    exit 1
+fi
+echo "maxminddb ${built} installed"

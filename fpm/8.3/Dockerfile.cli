@@ -48,13 +48,13 @@ RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-r
     libheif-plugin-aomenc \
     libheif-plugin-x265 \
     ghostscript \
-    fonts-droid-fallback \
-    libmaxminddb0 && \
+    fonts-droid-fallback && \
     rm -rf /var/lib/apt/lists/*
 
 # pecl.php.net fails under load; pecl-install retries with backoff.
-COPY bin/pecl-install /usr/local/bin/pecl-install
-RUN chmod +x /usr/local/bin/pecl-install
+# install-maxminddb builds MaxMind's latest release (see the script).
+COPY bin/pecl-install bin/install-maxminddb /usr/local/bin/
+RUN chmod +x /usr/local/bin/pecl-install /usr/local/bin/install-maxminddb
 
 # PHP extensions, built in one layer so the build leaves nothing behind.
 #
@@ -66,7 +66,7 @@ RUN chmod +x /usr/local/bin/pecl-install
 # manual (the runtime packages above and the base image's) and those providing
 # a shared library something under /usr/local links against, so the purge keeps
 # exactly the runtime libraries the extensions need (libzip, libicu, libpq,
-# libavif, libMagickWand, liblz4, libzstd, libmaxminddb, ...). This is the same
+# libavif, libMagickWand, liblz4, libzstd, ...). This is the same
 # technique the official php images use for their own build dependencies, except
 # that the dpkg-query --search output is parsed strictly: "diversion by ..."
 # lines are dropped (they are not package names, and apt-mark fails on them),
@@ -83,7 +83,6 @@ RUN set -eux; \
         libjpeg62-turbo-dev \
         liblz4-dev \
         libmagickwand-dev \
-        libmaxminddb-dev \
         libpng-dev \
         libpq-dev \
         libwebp-dev \
@@ -108,7 +107,9 @@ RUN set -eux; \
     # maxminddb: offline IP -> country lookups. The C decoder is roughly 100x
     # faster than maxmind-db/reader's pure-PHP fallback (~1.7us vs ~160us per
     # lookup), which matters when a lookup happens on every request.
-    pecl-install maxminddb; \
+    # Built from MaxMind's latest GitHub release, not PECL, which lags behind
+    # the version maxmind-db/reader requires; libmaxminddb is compiled in.
+    install-maxminddb; \
     pecl-install excimer; \
     docker-php-ext-enable redis imagick maxminddb excimer; \
     \

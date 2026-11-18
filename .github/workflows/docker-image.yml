@@ -8,6 +8,8 @@ on:
     branches: [master]
     paths:
       - '8/**'
+      # pecl-install, install-maxminddb and fetch-geoip-db are copied in
+      - 'bin/**'
       - '.github/workflows/docker-image.yml'
   schedule:
     # Runs every 2 weeks on Monday at 00:00 UTC
