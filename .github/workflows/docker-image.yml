@@ -15,6 +15,13 @@ on:
     # Runs every 2 weeks on Monday at 00:00 UTC
     - cron: "0 0 */14 * *"
   workflow_dispatch:
+    inputs:
+      build_from_source:
+        description: >-
+          Build PHP from php.net's latest release, for a security release the
+          official php images don't have yet
+        type: boolean
+        default: false
   repository_dispatch:
     types: [build-docker]
 
@@ -44,12 +51,23 @@ jobs:
       run: |
         TAG_VERSION=${{ matrix.php_version }}
         echo "TAG_VERSION=${TAG_VERSION//./}" >> $GITHUB_ENV
+    - name: php.net release to build from source
+      id: php
+      if: inputs.build_from_source
+      run: |
+        # An assignment, so a failed lookup fails the build.
+        release="$(bin/php-release "${{ matrix.php_version }}")"
+        echo "version=${release% *}" >> "$GITHUB_OUTPUT"
+        echo "sha256=${release#* }" >> "$GITHUB_OUTPUT"
+        echo "Building PHP $release from source"
     - name: Build and Push
       run: |
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.platform.arch }} \
           --file 8/${{ matrix.php_version }}/Dockerfile.${{ matrix.config.dockerfile_suffix }} \
+          --build-arg PHP_SOURCE_VERSION=${{ steps.php.outputs.version }} \
+          --build-arg PHP_SOURCE_SHA256=${{ steps.php.outputs.sha256 }} \
           --tag ianmgg/php$TAG_VERSION:${{ matrix.config.tag_suffix }}-${{ matrix.platform.arch }} \
           --push
 

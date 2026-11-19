@@ -1,0 +1,24 @@
+#!/bin/sh
+# Prints the latest php.net release of a PHP branch and the sha256 of its
+# .tar.xz, as "<version> <sha256>", from php.net's releases JSON.
+#
+# Used by the image workflows when run with "build from source".
+#
+# Usage: php-release <branch>     e.g. php-release 8.5
+set -e
+
+BRANCH="$1"
+json="$(curl -fsS --retry 5 --retry-all-errors --max-time 30 \
+    "https://www.php.net/releases/index.php?json&version=${BRANCH}")"
+version="$(printf '%s' "$json" | jq -r '.version // empty')"
+sha="$(printf '%s' "$json" | jq -r '[.source[]? | select(.filename | endswith(".tar.xz")) | .sha256][0] // empty')"
+
+case "$version" in
+    "$BRANCH".*) ;;
+    *) echo "ERROR: php.net has no ${BRANCH} release (got '${version}')" >&2; exit 1 ;;
+esac
+if [ "${#sha}" -ne 64 ]; then
+    echo "ERROR: php.net lists no .tar.xz sha256 for ${version}" >&2
+    exit 1
+fi
+echo "$version $sha"

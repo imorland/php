@@ -54,8 +54,17 @@ RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-r
 
 # pecl.php.net fails under load; pecl-install retries with backoff.
 # install-maxminddb builds MaxMind's latest release (see the script).
-COPY bin/pecl-install bin/install-maxminddb /usr/local/bin/
-RUN chmod +x /usr/local/bin/pecl-install /usr/local/bin/install-maxminddb
+COPY bin/pecl-install bin/install-maxminddb bin/php-from-source /usr/local/bin/
+RUN chmod +x /usr/local/bin/pecl-install /usr/local/bin/install-maxminddb /usr/local/bin/php-from-source
+
+# Security releases reach php.net hours before the official php images. Run the
+# image workflow with "build from source" to set these to php.net's latest
+# release: php-from-source then rebuilds PHP from that source before the
+# extensions are built against it, and PHP_VERSION reports it. Empty (the
+# default), or once the base image catches up, nothing changes.
+ARG PHP_SOURCE_VERSION=
+ARG PHP_SOURCE_SHA256=
+ENV PHP_VERSION=${PHP_SOURCE_VERSION:-${PHP_VERSION}}
 
 # PHP extensions, built in one layer so the build leaves nothing behind.
 #
@@ -89,6 +98,8 @@ RUN set -eux; \
         libwebp-dev \
         libzip-dev \
         libzstd-dev; \
+    \
+    php-from-source "$PHP_SOURCE_VERSION" "$PHP_SOURCE_SHA256"; \
     \
     docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg --with-avif; \
     docker-php-ext-install -j"$(nproc)" \

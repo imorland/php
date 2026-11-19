@@ -16,6 +16,13 @@ on:
     # workflows do not contend for runners.
     - cron: "0 2 1,15 * *"
   workflow_dispatch:
+    inputs:
+      build_from_source:
+        description: >-
+          Build PHP from php.net's latest release, for a security release the
+          official php images don't have yet
+        type: boolean
+        default: false
   repository_dispatch:
     types: [build-docker-fpm]
 
@@ -58,12 +65,23 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: php.net release to build from source
+      id: php
+      if: inputs.build_from_source
+      run: |
+        # An assignment, so a failed lookup fails the build.
+        release="$(bin/php-release "${{ matrix.version }}")"
+        echo "version=${release% *}" >> "$GITHUB_OUTPUT"
+        echo "sha256=${release#* }" >> "$GITHUB_OUTPUT"
+        echo "Building PHP $release from source"
     - name: Build and Push
       run: |
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
           --file fpm/${{ matrix.version }}/Dockerfile.apache \
+          --build-arg PHP_SOURCE_VERSION=${{ steps.php.outputs.version }} \
+          --build-arg PHP_SOURCE_SHA256=${{ steps.php.outputs.sha256 }} \
           --tag ianmgg/${{ matrix.image }}:latest-${{ matrix.arch }} \
           --push
 
@@ -91,12 +109,23 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: php.net release to build from source
+      id: php
+      if: inputs.build_from_source
+      run: |
+        # An assignment, so a failed lookup fails the build.
+        release="$(bin/php-release "${{ matrix.version }}")"
+        echo "version=${release% *}" >> "$GITHUB_OUTPUT"
+        echo "sha256=${release#* }" >> "$GITHUB_OUTPUT"
+        echo "Building PHP $release from source"
     - name: Build and Push
       run: |
         docker buildx build . \
           --progress=plain \
           --platform linux/${{ matrix.arch }} \
           --file fpm/${{ matrix.version }}/Dockerfile.cli \
+          --build-arg PHP_SOURCE_VERSION=${{ steps.php.outputs.version }} \
+          --build-arg PHP_SOURCE_SHA256=${{ steps.php.outputs.sha256 }} \
           --tag ianmgg/${{ matrix.image }}:cli-${{ matrix.arch }} \
           --push
 
